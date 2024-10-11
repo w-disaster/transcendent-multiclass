@@ -3,4 +3,4 @@
 /reports/*
 /timeseries_cred_conf/*
 .DS_Store
-
+venv/

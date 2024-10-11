@@ -14,7 +14,7 @@ import transcend.data as data
 import transcend.scores as scores
 import transcend.thresholding as thresholding
 import transcend.utils as utils
-
+from dataset.malware_dataset import MalwareDataset
 import pickle
 
 import json
@@ -22,7 +22,7 @@ import json
 import numpy as np
 from datetime import datetime
 from tesseract import temporal
-
+import pandas as pd
 
 def main():
     # ---------------------------------------- #
@@ -32,55 +32,69 @@ def main():
     utils.configure_logger()
     args = utils.parse_args()
 
-    if args.pval_consider != 'cal-only':
-        raise ValueError('This is ICE - only compute test pvals with cal ncms')
+    print('This is ICE - only compute test pvals with cal ncms')
 
-    if len(args.dataset):
-        logging.info('Loading {} features...'.format(args.dataset))
-        with open(f"./features/{args.dataset}-X.json", 'rb') as f:
-            X = json.load(f)
+    # if len(args.dataset):
+    #     logging.info('Loading {} features...'.format(args.dataset))
+    #     with open(f"./features/{args.dataset}-X.json", 'rb') as f:
+    #         X = json.load(f)
 
-        logging.info('Loading {} labels...'.format(args.dataset))
-        with open(f"./features/{args.dataset}-y.json", 'r') as f:
-            y = json.load(f)
+    #     logging.info('Loading {} labels...'.format(args.dataset))
+    #     with open(f"./features/{args.dataset}-y.json", 'r') as f:
+    #         y = json.load(f)
 
-        logging.info('Loading {} metadata...'.format(args.dataset))
-        with open(f"./features/{args.dataset}-meta.json", 'r') as f:
-            T = json.load(f)
-            T = [o['dex_date'] for o in T]
-            t = np.array(
-                [datetime.strptime(o, '%Y-%m-%dT%H:%M:%S') if "T" in o else datetime.strptime(o, '%Y-%m-%d %H:%M:%S')
-                 for o in T])
+    #     logging.info('Loading {} metadata...'.format(args.dataset))
+    #     with open(f"./features/{args.dataset}-meta.json", 'r') as f:
+    #         T = json.load(f)
+    #         T = [o['dex_date'] for o in T]
+    #         t = np.array(
+    #             [datetime.strptime(o, '%Y-%m-%dT%H:%M:%S') if "T" in o else datetime.strptime(o, '%Y-%m-%d %H:%M:%S')
+    #              for o in T])
 
-        logging.info('Vectorize {}...'.format(args.dataset))
-        vec = DictVectorizer()
-        X = vec.fit_transform(X)
-        y = np.asarray(y)
+    #     logging.info('Vectorize {}...'.format(args.dataset))
+    #     vec = DictVectorizer()
+    #     X = vec.fit_transform(X)
+    #     y = np.asarray(y)
 
-        logging.info('Partition {} training, testing, and timestamps...'.format(args.dataset))
-        # Partition dataset via TESSERACT
-        splits = temporal.time_aware_train_test_split(X, y, t, train_size=12, test_size=1, granularity='month')
-        X_train, X_test, y_train, y_test, t_train, t_test = splits
+    #     logging.info('Partition {} training, testing, and timestamps...'.format(args.dataset))
+    #     # Partition dataset via TESSERACT
+    #     splits = temporal.time_aware_train_test_split(X, y, t, train_size=12, test_size=1, granularity='month')
+    #     X_train, X_test, y_train, y_test, t_train, t_test = splits
 
-        argstrain = args.dataset
-    else:
+    #     argstrain = args.dataset
+    # else:
 
-        logging.info('Loading {} training features...'.format(args.train))
 
-        X_train = pickle.load(open(f"./features/{args.train}_X.p", "rb"))
-        y_train = pickle.load(open(f"./features/{args.train}_y.p", "rb"))
+    base_path = "/home/luca/ml-malware-concept-drift/src/notebooks/"
+    logging.info('Loading malw-static-features training features...')
 
-        X_test = pickle.load(open(f"./features/{args.test}_X.p", "rb"))
-        y_test = pickle.load(open(f"./features/{args.test}_y.p", "rb"))
-        # X_train, y_train = data.load_features(args.train)
-        argstrain = args.train
+    ## Load Full Dataset with Malware Static Features
+    malware_dataset = MalwareDataset(split=pd.Timestamp("2021-09-03 13:47:49"),
+                                 truncated_fam_path="truncated_samples_per_family.csv",
+                                 truncated_threshold=7)
 
+    with open(base_path + "clustering/1_preprocessing/X_nontrunc_norm.pickle", "rb") as f:
+        X = pickle.load(f)
+
+    ## Get the already computed time-based train/test split
+    dataset_info = malware_dataset.df_malware_family_fsd[["sha256", "family"]]
+    X = pd.merge(left=X, right=dataset_info, left_index=True, right_on="sha256")
+    X.set_index("sha256", inplace=True)
+
+    y_train = X.loc[malware_dataset.training_dataset["sha256"]]["family"]
+    y_test = X.loc[malware_dataset.testing_dataset["sha256"]]["family"]
+
+    X.drop("family", axis=1, inplace=True)
+
+    X_train = X.loc[malware_dataset.training_dataset["sha256"]]
+    X_test = X.loc[malware_dataset.testing_dataset["sha256"]]
+    
     logging.info('Loaded: {}'.format(X_train.shape, y_train.shape))
 
     test_size = 0.34
 
     # saved_data_folder = os.path.join('models', '{}-fold'.format(args.folds))
-    saved_data_folder = os.path.join('models', 'ice-{}-{}'.format(args.folds, argstrain))
+    saved_data_folder = os.path.join('models', 'ice-{}-{}'.format(args.folds, 'malw-static-features'))
 
     # ---------------------------------------- #
     # 1. Calibration                           #
@@ -276,7 +290,7 @@ def main():
 
         if True:
             if args.pval_consider == 'full-train':
-                logging.info('Getting NCMs for train ({})...'.format(argstrain))
+                logging.info('Getting NCMs for train')
                 ncms = scores.get_svm_ncms(svm, X_train, y_train)
                 groundtruth = y_train
             elif args.pval_consider == 'cal-only':
