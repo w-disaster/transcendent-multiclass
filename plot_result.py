@@ -1,16 +1,13 @@
-import os
 import pickle
-import seaborn as sns
-import numpy as np
-import pandas as pd
-import scipy as sp
-from matplotlib import pyplot as plt
-from sklearn.metrics import f1_score, precision_score, recall_score
-from sklearn.svm import LinearSVC
+import pickle
 from collections import defaultdict
-from tesseract.loader import load_features
-from tesseract.temporal import time_aware_train_test_split
-from tesseract import viz
+
+import pandas as pd
+from matplotlib import pyplot as plt
+
+# from tesseract.loader import load_features
+# from tesseract.temporal import time_aware_train_test_split
+# from tesseract import viz
 
 line_kwargs = {'linewidth': 1, 'markersize': 5}
 
@@ -29,7 +26,7 @@ def plot(result_path):
         data_tables['reject_pos_perc'].append(results[j]['reject_pos_perc'])
     results = pd.DataFrame.from_dict(data_tables)
 
-    viz.set_style()
+    # viz.set_style()
     fig, (ax1) = plt.subplots(1, 1)
 
     # plot total reject bar
@@ -54,15 +51,14 @@ def plot(result_path):
     ax1.plot(results.index, results['f1_r'], label='F1 (rejection)', alpha=1.0, marker='o',
              c='red', markeredgewidth=1, **line_kwargs)
 
-    viz.set_title_sc(ax1, result_path.split('/')[-1])
+    # viz.set_title_sc(ax1, result_path.split('/')[-1])
     add_legend(ax1)
 
-    viz.style_axes((ax1,), len(results.index))
+    # viz.style_axes((ax1,), len(results.index))
     fig.set_size_inches(6, 4)
     plt.tight_layout()
-
-    viz.save_images(plt, result_path.split('/')[-1])
-
+    # viz.save_images(plt, result_path.split('/')[-1])
+    plt.savefig("./figure.png")
     print('Plot ready!')
 
 
@@ -72,3 +68,6 @@ def add_legend(ax, loc='lower left'):
     legend.get_frame().set_facecolor('#FFFFFF')
     legend.get_frame().set_linewidth(0)
     return legend
+
+if __name__ == '__main__':
+    plot("./timeseries_cred_conf/ice_p_val_results.p")

@@ -894,30 +894,30 @@ def get_performance_with_rejection(y_true, y_pred, keep_mask, full=True):
               'reject_neg_perc': reject_neg_perc,
               'reject_pos_perc': reject_pos_perc})
 
-    f1_b = metrics.f1_score(y_true, y_pred)
+    f1_b = metrics.f1_score(y_true, y_pred, average='micro')
     f1_k = metrics.f1_score(y_true[keep_mask],
-                            y_pred[keep_mask])
+                            y_pred[keep_mask], average='micro')
     f1_r = metrics.f1_score(y_true[~keep_mask],
-                            y_pred[~keep_mask])
+                            y_pred[~keep_mask], average='micro')
 
     d.update({'f1_b': f1_b, 'f1_k': f1_k, 'f1_r': f1_r})
 
-    precision_b = metrics.precision_score(y_true, y_pred)
+    precision_b = metrics.precision_score(y_true, y_pred, average='micro')
 
     precision_k = metrics.precision_score(y_true[keep_mask],
-                                          y_pred[keep_mask])
+                                          y_pred[keep_mask], average='micro')
     precision_r = metrics.precision_score(y_true[~keep_mask],
-                                          y_pred[~keep_mask])
+                                          y_pred[~keep_mask], average='micro')
     d.update({'precision_b': precision_b,
               'precision_k': precision_k,
               'precision_r': precision_r})
 
-    recall_b = metrics.recall_score(y_true, y_pred)
+    recall_b = metrics.recall_score(y_true, y_pred, average='micro')
 
     recall_k = metrics.recall_score(y_true[keep_mask],
-                                    y_pred[keep_mask])
+                                    y_pred[keep_mask], average='micro')
     recall_r = metrics.recall_score(y_true[~keep_mask],
-                                    y_pred[~keep_mask])
+                                    y_pred[~keep_mask], average='micro')
     d.update({'recall_b': recall_b, 'recall_k': recall_k, 'recall_r': recall_r})
 
     if full:
@@ -1005,35 +1005,37 @@ def report_results(d, quiet=False):
 
     print_and_extend(s)
 
-    s = ('TP baseline:  {:>12.2f} | '
-         'TP keep:      {:>12.2f} | '
-         'TP reject:    {:>12.2f}'.format(d['tp_b'], d['tp_k'], d['tp_r']))
-    print_and_extend(s)
-
-    s = ('FP baseline:  {:>12.2f} | '
-         'FP keep:      {:>12.2f} | '
-         'FP reject:    {:>12.2f}'.format(d['fp_b'], d['fp_k'], d['fp_r']))
-    print_and_extend(s)
-
-    s = ('TN baseline:  {:>12.2f} | '
-         'TN keep:      {:>12.2f} | '
-         'TN reject:    {:>12.2f}'.format(d['tn_b'], d['tn_k'], d['tn_r']))
-    print_and_extend(s)
-
-    s = ('FN baseline:  {:>12.2f} | '
-         'FN keep:      {:>12.2f} | '
-         'FN reject:    {:>12.2f}'.format(d['fn_b'], d['fn_k'], d['fn_r']))
-    print_and_extend(s)
-
-    s = ('TPR baseline: {:>12.2f} | '
-         'TPR keep:     {:>12.2f} | '
-         'TPR reject:   {:>12.2f}'.format(d['tpr_b'], d['tpr_k'], d['tpr_r']))
-    print_and_extend(s)
-
-    s = ('FPR baseline: {:>12.2f} | '
-         'FPR keep:     {:>12.2f} | '
-         'FPR reject:   {:>12.2f}'.format(d['fpr_b'], d['fpr_k'], d['fpr_r']))
-    print_and_extend(s)
+    #
+    #
+    # s = ('TP baseline:  {:>12.2f} | '
+    #      'TP keep:      {:>12.2f} | '
+    #      'TP reject:    {:>12.2f}'.format(d['tp_b'], d['tp_k'], d['tp_r']))
+    # print_and_extend(s)
+    #
+    # s = ('FP baseline:  {:>12.2f} | '
+    #      'FP keep:      {:>12.2f} | '
+    #      'FP reject:    {:>12.2f}'.format(d['fp_b'], d['fp_k'], d['fp_r']))
+    # print_and_extend(s)
+    #
+    # s = ('TN baseline:  {:>12.2f} | '
+    #      'TN keep:      {:>12.2f} | '
+    #      'TN reject:    {:>12.2f}'.format(d['tn_b'], d['tn_k'], d['tn_r']))
+    # print_and_extend(s)
+    #
+    # s = ('FN baseline:  {:>12.2f} | '
+    #      'FN keep:      {:>12.2f} | '
+    #      'FN reject:    {:>12.2f}'.format(d['fn_b'], d['fn_k'], d['fn_r']))
+    # print_and_extend(s)
+    #
+    # s = ('TPR baseline: {:>12.2f} | '
+    #      'TPR keep:     {:>12.2f} | '
+    #      'TPR reject:   {:>12.2f}'.format(d['tpr_b'], d['tpr_k'], d['tpr_r']))
+    # print_and_extend(s)
+    #
+    # s = ('FPR baseline: {:>12.2f} | '
+    #      'FPR keep:     {:>12.2f} | '
+    #      'FPR reject:   {:>12.2f}'.format(d['fpr_b'], d['fpr_k'], d['fpr_r']))
+    # print_and_extend(s)
 
     return report_str
 

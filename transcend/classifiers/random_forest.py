@@ -51,7 +51,7 @@ class RandomForestNCMClassifier(NCMClassifier, RandomForestClassifier):
         self.proximity = self.__compute_proximity(self.train_leaves)
 
     def ncm(self, X, y):
-        if X.equals(self.X_train):
+        if np.array_equal(X, self.X_train):
             proximity = self.proximity
         else:
             leaves = self.apply(X)
@@ -59,7 +59,7 @@ class RandomForestNCMClassifier(NCMClassifier, RandomForestClassifier):
 
         return np.array([np.mean(np.sort(proximity[i, self.y_train != y[i]])[-10:]) /
                          np.mean(np.sort(proximity[i, self.y_train == y[i]])[-10:])
-                         for i in tqdm(range(len(y)), total=len(y), descr='rf ncms')])
+                         for i in tqdm(range(len(y)))])
 
     # def per_label_ncm(self, args):
     #     args = yy, idx

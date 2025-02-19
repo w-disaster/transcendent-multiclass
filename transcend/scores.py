@@ -14,6 +14,8 @@ settings and different classifiers will require their own functions for
 generating non-conformity measures based on different intuitions.
 
 """
+import logging
+
 import numpy as np
 from tqdm import tqdm
 
@@ -114,7 +116,7 @@ def compute_single_cred_p_value(
         float: The p-value for `single_test_ncm` w.r.t. `train_ncms`.
 
     """
-    assert len(set(groundtruth_train)) == 2  # binary classification tasks only
+    # assert len(set(groundtruth_train)) == 2  # binary classification tasks only
 
     how_many_are_greater_than_single_test_ncm = 0
 
@@ -165,7 +167,7 @@ def compute_single_conf_p_value(
         float: The p-value for `single_test_ncm` w.r.t. `train_ncms`.
 
     """
-    assert len(set(groundtruth_train)) == 2  # binary classification tasks only
+    # assert len(set(groundtruth_train)) == 2  # binary classification tasks only
 
     # 'Cast' NCMs to NCMs with respect to the opposite class (binary only)
     # train_ncms_opposite_class = -1 * np.array(train_ncms)
@@ -189,6 +191,7 @@ def compute_single_conf_p_value(
 
 def get_rf_probs(clf, X_in):
     assert hasattr(clf, 'predict_proba')
+    logging.info(f"SHAPE RF: {X_in.shape}")
     probability_results = clf.predict_proba(X_in)
     probas_cal_fold = [np.max(t) for t in probability_results]
     pred_proba_cal_fold = [np.argmax(t) for t in probability_results]

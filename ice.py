@@ -7,6 +7,10 @@ from sklearn.model_selection import train_test_split
 from termcolor import cprint
 from tqdm import tqdm
 
+from sklearn.datasets import make_classification
+from sklearn.model_selection import train_test_split
+
+
 import transcend.calibration as calibration
 import transcend.data as data
 import transcend.scores as scores
@@ -57,24 +61,41 @@ def main():
     # else:
 
 
-    base_path = "/home/luca/ml-malware-concept-drift/src/notebooks/"
-    logging.info('Loading malw-static-features training features...')
+    # base_path = "/home/luca/ml-malware-concept-drift/src/notebooks/"
+    # logging.info('Loading malw-static-features training features...')
+    #
+    # ## Load Full Dataset with Malware Static Features
+    # malware_dataset = MalwareDataset(split=pd.Timestamp("2021-09-03 13:47:49"),
+    #                              truncated_fam_path="truncated_samples_per_family.csv",
+    #                              truncated_threshold=7)
+    #
+    # with open(base_path + "clustering/1_preprocessing/X_nontrunc_norm.pickle", "rb") as f:
+    #     X = pickle.load(f)
+    #
+    # X_train = X.loc[malware_dataset.training_dataset["sha256"]]
+    # X_test = X.loc[malware_dataset.testing_dataset["sha256"]]
+    #
+    # y_train = malware_dataset.training_dataset["family"]
+    # y_test = malware_dataset.testing_dataset["family"]
 
-    ## Load Full Dataset with Malware Static Features
-    malware_dataset = MalwareDataset(split=pd.Timestamp("2021-09-03 13:47:49"),
-                                 truncated_fam_path="truncated_samples_per_family.csv",
-                                 truncated_threshold=7)
+    # del X
 
-    with open(base_path + "clustering/1_preprocessing/X_nontrunc_norm.pickle", "rb") as f:
-        X = pickle.load(f)
+    # Generate synthetic classification data
+    X, y = make_classification(
+        n_samples=10_000,  # Number of samples
+        n_features=20,  # Number of features
+        n_classes=3,  # Number of classes (multiclass problem)
+        n_informative=15,  # Number of informative features
+        n_redundant=2,  # Number of redundant features
+        random_state=42
+    )
 
-    X_train = X.loc[malware_dataset.training_dataset["sha256"]]
-    X_test = X.loc[malware_dataset.testing_dataset["sha256"]]
-    
-    y_train = malware_dataset.training_dataset["family"]
-    y_test = malware_dataset.testing_dataset["family"]
+    # Split into training and testing sets (80% train, 20% test)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-    del X
+    logging.info(X_test.shape)
+
+    del X, y
 
     ## Get the already computed time-based train/test split
     #dataset_info = malware_dataset.df_malware_family_fsd[["sha256", "family"]]
@@ -260,120 +281,83 @@ def main():
 
     logging.info('Loading {} test features...'.format(argstest))
 
-    test_X_y = zip(X_test_temp, y_test_temp)
+    #test_X_y = zip(X_test_temp, y_test_temp)
     time_series_p_val_results, time_series_p_vals, p_val_keep_masks, \
         time_series_proba_results, time_series_probas, proba_keep_masks = [], [], [], [], [], []
 
-    for X_test, y_test in tqdm(test_X_y):
-        # Probability scores
+    # Probability scores
+    logging.info(f"BEFORE {X_test.shape}")
 
-        logging.info('Getting probabilities for test ({})...'.format(argstest))
-        probas_test, pred_proba_test = scores.get_rf_probs(rf, X_test)
+    logging.info('Getting probabilities for test ({})...'.format(argstest))
+    probas_test, pred_proba_test = scores.get_rf_probs(rf, X_test)
 
-        # P-value scores
+    # P-value scores
 
-        logging.info('Computing p-values for test ({})...'.format(argstest))
-        pred_test = rf.predict(X_test)
+    logging.info('Computing p-values for test ({})...'.format(argstest))
+    pred_test = rf.predict(X_test)
 
-        saved_data_name = 'p_vals_ncms_{}_rf_full_test_phase.p'.format(
-            args.pval_consider.replace('-', '_'))
-        saved_data_name = os.path.join(saved_data_folder, saved_data_name)
+    saved_data_name = 'p_vals_ncms_{}_rf_full_test_phase.p'.format(
+        args.pval_consider.replace('-', '_'))
+    saved_data_name = os.path.join(saved_data_folder, saved_data_name)
 
-        # removing this for debug!!
+    # removing this for debug!!
 
-        # if os.path.exists(saved_data_name):
-        #    p_val_test_dict = data.load_cached_data(saved_data_name)
+    # if os.path.exists(saved_data_name):
+    #    p_val_test_dict = data.load_cached_data(saved_data_name)
 
-        # else:
+    # else:
 
-        if True:
-            if args.pval_consider == 'full-train':
-                logging.info('Getting NCMs for train')
-                ncms = scores.get_rf_ncms(rf, X_train, y_train)
-                groundtruth = y_train
-            elif args.pval_consider == 'cal-only':
-                logging.info('Using calibration ncms...')
-                ncms = cal_results_dict['ncms_cal']
-                groundtruth = groundtruth_cal
-            else:
-                raise ValueError('Unknown value: args.pval_consider={}'.format(
-                    args.pval_consider))
+    if True:
+        if args.pval_consider == 'full-train':
+            logging.info('Getting NCMs for train')
+            ncms = scores.get_rf_ncms(rf, X_train, y_train)
+            groundtruth = y_train
+        elif args.pval_consider == 'cal-only':
+            logging.info('Using calibration ncms...')
+            ncms = cal_results_dict['ncms_cal']
+            groundtruth = groundtruth_cal
+        else:
+            raise ValueError('Unknown value: args.pval_consider={}'.format(
+                args.pval_consider))
 
-            logging.info('Getting NCMs for test ({})...'.format(argstest))
-            ncms_full_test = scores.get_rf_ncms(rf, X_test, pred_test)
+        logging.info('Getting NCMs for test ({})...'.format(argstest))
+        ncms_full_test = scores.get_rf_ncms(rf, X_test, pred_test)
 
-            p_val_test_dict = scores.compute_p_values_cred_and_conf(
-                train_ncms=ncms,
-                groundtruth_train=groundtruth,
-                test_ncms=ncms_full_test,
-                y_test=pred_test)
-            data.cache_data(p_val_test_dict, saved_data_name)
+        p_val_test_dict = scores.compute_p_values_cred_and_conf(
+            train_ncms=ncms,
+            groundtruth_train=groundtruth,
+            test_ncms=ncms_full_test,
+            y_test=pred_test)
+        data.cache_data(p_val_test_dict, saved_data_name)
 
-        # ---------------------------------------- #
-        # 5. Apply Thresholds, Compare Results     #
-        # ---------------------------------------- #
+    # ---------------------------------------- #
+    # 5. Apply Thresholds, Compare Results     #
+    # ---------------------------------------- #
 
-        report_str = ''
+    report_str = ''
 
-        def print_and_extend(report_line):
-            nonlocal report_str
-            cprint(report_line, 'red')
-            report_str += report_line + '\n'
+    def print_and_extend(report_line):
+        nonlocal report_str
+        cprint(report_line, 'red')
+        report_str += report_line + '\n'
 
-        if args.thresholds == 'quartiles':
-            for q in ('q1', 'q2', 'q3', 'mean'):
-                p_val_binary_thresholds = {}
+    if args.thresholds == 'quartiles':
+        for q in ('q1', 'q2', 'q3', 'mean'):
+            p_val_binary_thresholds = {}
 
-                if 'cred' in args.criteria:
-                    p_val_binary_thresholds['cred'] = cred_p_val_thresholds[q]
-                if 'conf' in args.criteria:
-                    print('CONF HERE!')
-                    print(args.criteria)
-                    p_val_binary_thresholds['conf'] = conf_p_val_thresholds[q]
-
-                print_and_extend('=' * 40)
-                print_and_extend('[P-VALS] Threshold criteria: {}'.format(q))
-                print_thresholds(p_val_binary_thresholds)
-
-                results, keep_mask = thresholding.test_with_rejection(
-                    binary_thresholds=p_val_binary_thresholds,
-                    test_scores=p_val_test_dict,
-                    groundtruth_labels=y_test,
-                    predicted_labels=pred_test)
-
-                time_series_p_val_results.append(results)
-                time_series_p_vals.append(p_val_test_dict)
-                p_val_keep_masks.append(keep_mask)
-
-                report_str += thresholding.report_results(results)
-
-                prob_binary_thresholds = {'cred': probas_thresholds[q]}
-                prob_test_scores = {'cred': probas_test}
-
-                print_and_extend('=' * 40)
-                print_and_extend('[PROBS] Threshold criteria: {}'.format(q))
-                print_thresholds(prob_binary_thresholds)
-
-                results, keep_mask = thresholding.test_with_rejection(
-                    binary_thresholds=prob_binary_thresholds,
-                    test_scores=prob_test_scores,
-                    groundtruth_labels=y_test,
-                    predicted_labels=pred_proba_test)
-
-                time_series_proba_results.append(results)
-                time_series_probas.append(prob_test_scores)
-                proba_keep_masks.append(keep_mask)
-
-                report_str += thresholding.report_results(results)
-
-        elif args.thresholds in ('random-search', 'constrained-search'):
+            if 'cred' in args.criteria:
+                p_val_binary_thresholds['cred'] = cred_p_val_thresholds[q]
+            if 'conf' in args.criteria:
+                print('CONF HERE!')
+                print(args.criteria)
+                p_val_binary_thresholds['conf'] = conf_p_val_thresholds[q]
 
             print_and_extend('=' * 40)
-            print_and_extend('[P-VALS] Threshold with random grid search')
-            print_thresholds(p_val_found_thresholds)
+            print_and_extend('[P-VALS] Threshold criteria: {}'.format(q))
+            print_thresholds(p_val_binary_thresholds)
 
             results, keep_mask = thresholding.test_with_rejection(
-                binary_thresholds=p_val_found_thresholds,
+                binary_thresholds=p_val_binary_thresholds,
                 test_scores=p_val_test_dict,
                 groundtruth_labels=y_test,
                 predicted_labels=pred_test)
@@ -384,14 +368,15 @@ def main():
 
             report_str += thresholding.report_results(results)
 
-            print_and_extend('=' * 40)
-            print_and_extend('[PROBS] Threshold with random grid search')
-            print_thresholds(prob_found_thresholds)
-
+            prob_binary_thresholds = {'cred': probas_thresholds[q]}
             prob_test_scores = {'cred': probas_test}
 
+            print_and_extend('=' * 40)
+            print_and_extend('[PROBS] Threshold criteria: {}'.format(q))
+            print_thresholds(prob_binary_thresholds)
+
             results, keep_mask = thresholding.test_with_rejection(
-                binary_thresholds=prob_found_thresholds,
+                binary_thresholds=prob_binary_thresholds,
                 test_scores=prob_test_scores,
                 groundtruth_labels=y_test,
                 predicted_labels=pred_proba_test)
@@ -402,11 +387,47 @@ def main():
 
             report_str += thresholding.report_results(results)
 
-        else:
-            raise ValueError(
-                'Unknown option: args.thresholds = {}'.format(args.threshold))
+    elif args.thresholds in ('random-search', 'constrained-search'):
 
-        data.save_results(report_str, args)
+        print_and_extend('=' * 40)
+        print_and_extend('[P-VALS] Threshold with random grid search')
+        print_thresholds(p_val_found_thresholds)
+
+        results, keep_mask = thresholding.test_with_rejection(
+            binary_thresholds=p_val_found_thresholds,
+            test_scores=p_val_test_dict,
+            groundtruth_labels=y_test,
+            predicted_labels=pred_test)
+
+        time_series_p_val_results.append(results)
+        time_series_p_vals.append(p_val_test_dict)
+        p_val_keep_masks.append(keep_mask)
+
+        report_str += thresholding.report_results(results)
+
+        print_and_extend('=' * 40)
+        print_and_extend('[PROBS] Threshold with random grid search')
+        print_thresholds(prob_found_thresholds)
+
+        prob_test_scores = {'cred': probas_test}
+
+        results, keep_mask = thresholding.test_with_rejection(
+            binary_thresholds=prob_found_thresholds,
+            test_scores=prob_test_scores,
+            groundtruth_labels=y_test,
+            predicted_labels=pred_proba_test)
+
+        time_series_proba_results.append(results)
+        time_series_probas.append(prob_test_scores)
+        proba_keep_masks.append(keep_mask)
+
+        report_str += thresholding.report_results(results)
+
+    else:
+        raise ValueError(
+            'Unknown option: args.thresholds = {}'.format(args.threshold))
+
+    data.save_results(report_str, args)
 
     data.cache_data(time_series_p_val_results, 'timeseries_cred_conf/ice_p_val_results.p')
     data.cache_data(time_series_p_vals, 'timeseries_cred_conf/ice_p_vals.p')
