@@ -61,41 +61,40 @@ def main():
     # else:
 
 
-    # base_path = "/home/luca/ml-malware-concept-drift/src/notebooks/"
-    # logging.info('Loading malw-static-features training features...')
+    base_path = "/home/luca/ml-malware-concept-drift/src/notebooks/"
+    logging.info('Loading malw-static-features training features...')
+
+    ## Load Full Dataset with Malware Static Features
+    malware_dataset = MalwareDataset(split=pd.Timestamp("2021-09-03 13:47:49"),
+                                 truncated_fam_path="truncated_samples_per_family.csv",
+                                 truncated_threshold=7)
+
+    with open(base_path + "clustering/1_preprocessing/X_nontrunc_norm.pickle", "rb") as f:
+        X = pickle.load(f)
+
+    X_train = X.loc[malware_dataset.training_dataset["sha256"]]
+    X_test = X.loc[malware_dataset.testing_dataset["sha256"]]
+
+    y_train = malware_dataset.training_dataset["family"]
+    y_test = malware_dataset.testing_dataset["family"]
+
+    del X
+
+    # # Generate synthetic classification data
+    # X, y = make_classification(
+    #     n_samples=10_000,  # Number of samples
+    #     n_features=20,  # Number of features
+    #     n_classes=3,  # Number of classes (multiclass problem)
+    #     n_informative=15,  # Number of informative features
+    #     n_redundant=2,  # Number of redundant features
+    #     random_state=42
+    # )
     #
-    # ## Load Full Dataset with Malware Static Features
-    # malware_dataset = MalwareDataset(split=pd.Timestamp("2021-09-03 13:47:49"),
-    #                              truncated_fam_path="truncated_samples_per_family.csv",
-    #                              truncated_threshold=7)
+    # # Split into training and testing sets (80% train, 20% test)
+    # X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     #
-    # with open(base_path + "clustering/1_preprocessing/X_nontrunc_norm.pickle", "rb") as f:
-    #     X = pickle.load(f)
     #
-    # X_train = X.loc[malware_dataset.training_dataset["sha256"]]
-    # X_test = X.loc[malware_dataset.testing_dataset["sha256"]]
-    #
-    # y_train = malware_dataset.training_dataset["family"]
-    # y_test = malware_dataset.testing_dataset["family"]
-
-    # del X
-
-    # Generate synthetic classification data
-    X, y = make_classification(
-        n_samples=10_000,  # Number of samples
-        n_features=20,  # Number of features
-        n_classes=3,  # Number of classes (multiclass problem)
-        n_informative=15,  # Number of informative features
-        n_redundant=2,  # Number of redundant features
-        random_state=42
-    )
-
-    # Split into training and testing sets (80% train, 20% test)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-    logging.info(X_test.shape)
-
-    del X, y
+    # del X, y
 
     ## Get the already computed time-based train/test split
     #dataset_info = malware_dataset.df_malware_family_fsd[["sha256", "family"]]
