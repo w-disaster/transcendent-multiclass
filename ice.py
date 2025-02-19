@@ -76,18 +76,26 @@ def main():
     with open(base_path + "clustering/1_preprocessing/X_nontrunc_norm.pickle", "rb") as f:
         X = pickle.load(f)
 
-    ## Get the already computed time-based train/test split
-    dataset_info = malware_dataset.df_malware_family_fsd[["sha256", "family"]]
-    X = pd.merge(left=X, right=dataset_info, left_index=True, right_on="sha256")
-    X.set_index("sha256", inplace=True)
-
-    y_train = X.loc[malware_dataset.training_dataset["sha256"]]["family"]
-    y_test = X.loc[malware_dataset.testing_dataset["sha256"]]["family"]
-
-    X.drop("family", axis=1, inplace=True)
-
     X_train = X.loc[malware_dataset.training_dataset["sha256"]]
     X_test = X.loc[malware_dataset.testing_dataset["sha256"]]
+    
+    y_train = malware_dataset.training_dataset["family"]
+    y_test = malware_dataset.testing_dataset["family"]
+
+    del X
+
+    ## Get the already computed time-based train/test split
+    #dataset_info = malware_dataset.df_malware_family_fsd[["sha256", "family"]]
+    #X = pd.merge(left=X, right=dataset_info, left_index=True, right_on="sha256")
+    #X.set_index("sha256", inplace=True)
+
+    #y_train = X.loc[malware_dataset.training_dataset["sha256"]]["family"]
+    #y_test = X.loc[malware_dataset.testing_dataset["sha256"]]["family"]
+
+    #X.drop("family", axis=1, inplace=True)
+
+    #X_train = X.loc[malware_dataset.training_dataset["sha256"]]
+    #X_test = X.loc[malware_dataset.testing_dataset["sha256"]]
     
     logging.info('Loaded: {}'.format(X_train.shape, y_train.shape))
 
