@@ -2,6 +2,7 @@ import logging
 import os
 import pickle
 
+import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from termcolor import cprint
@@ -77,6 +78,14 @@ def main():
 
     y_train = malware_dataset.training_dataset["family"]
     y_test = malware_dataset.testing_dataset["family"]
+
+    all_labels = pd.concat([y_train, y_test]).unique()
+
+    # Apply the same categorical encoding to both
+    y_train = pd.Categorical(y_train, categories=all_labels).codes
+    y_test = pd.Categorical(y_test, categories=all_labels).codes
+
+    logging.info(np.unique(y_train))
 
     del X
 
