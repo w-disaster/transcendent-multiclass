@@ -17,6 +17,9 @@ generating non-conformity measures based on different intuitions.
 import numpy as np
 from tqdm import tqdm
 
+def get_rf_ncms(clf, X_in, y_in):
+    return clf.ncm(X_in, y_in)
+
 
 def get_svm_ncms(clf, X_in, y_in):
     """Helper functions to get NCMs across an entire pair of X,y arrays. """
@@ -183,6 +186,13 @@ def compute_single_conf_p_value(
 
     return 1 - single_cred_p_value_opposite_class  # confidence p value
 
+
+def get_rf_probs(clf, X_in):
+    assert hasattr(clf, 'predict_proba')
+    probability_results = clf.predict_proba(X_in)
+    probas_cal_fold = [np.max(t) for t in probability_results]
+    pred_proba_cal_fold = [np.argmax(t) for t in probability_results]
+    return probas_cal_fold, pred_proba_cal_fold
 
 def get_svm_probs(clf, X_in):
     """Get scores and predictions for comparison with probabilities.

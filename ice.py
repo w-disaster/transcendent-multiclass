@@ -1,13 +1,11 @@
 import logging
 import os
+import pickle
 
+import pandas as pd
 from sklearn.model_selection import train_test_split
-from sklearn.feature_extraction import DictVectorizer
-from sklearn.svm import SVC
 from termcolor import cprint
 from tqdm import tqdm
-
-import matplotlib.pyplot as plt
 
 import transcend.calibration as calibration
 import transcend.data as data
@@ -15,14 +13,8 @@ import transcend.scores as scores
 import transcend.thresholding as thresholding
 import transcend.utils as utils
 from dataset.malware_dataset import MalwareDataset
-import pickle
+from transcend.classifiers.random_forest import RandomForestNCMClassifier
 
-import json
-
-import numpy as np
-from datetime import datetime
-from tesseract import temporal
-import pandas as pd
 
 def main():
     # ---------------------------------------- #
@@ -200,7 +192,7 @@ def main():
         # deleted, tho!
 
         # Cache pval scores in thresholding.find_random_search_thresholds_with_constraints
-        statistic_name = 'svm_scores_p_val_cal_ice_{}.p'.format(test_size)
+        statistic_name = 'rf_scores_p_val_cal_ice_{}.p'.format(test_size)
         statistic_name = os.path.join(saved_data_folder, statistic_name)
 
         p_val_found_thresholds = thresholding.find_random_search_thresholds_with_constraints(
@@ -215,7 +207,7 @@ def main():
         scores_probas_cal = {'cred': probas_cal}
 
         # Cache proba scores in thresholding.find_random_search_thresholds_with_constraints
-        statistic_name = 'svm_scores_p_probas_cal_ice_{}.p'.format(test_size)
+        statistic_name = 'rf_scores_p_probas_cal_ice_{}.p'.format(test_size)
         statistic_name = os.path.join(saved_data_folder, statistic_name)
 
         prob_found_thresholds = thresholding.find_random_search_thresholds_with_constraints(
@@ -241,19 +233,17 @@ def main():
 
     logging.info('Training model on full training set...')
 
-    # model_name = 'svm_full_test_phase.p'
-
-    model_name = 'svm_cal_fold_ice_{}.p'.format(test_size)
+    model_name = 'rf_cal_fold_ice_{}.p'.format(test_size)
     model_name = os.path.join(saved_data_folder, model_name)
 
     if os.path.exists(model_name):
         logging.warning('FOUND SAVED ICE PROPER TRAIN MODEL.')
-        svm = data.load_cached_data(model_name)
+        rf = data.load_cached_data(model_name)
     else:
         logging.warning('NOT FOUND SAVED ICE PROPER TRAIN MODEL. Retraining...')
-        svm = SVC(probability=True, kernel='linear', verbose=True)
-        svm.fit(X_train, y_train)
-        data.cache_data(svm, model_name)
+        rf = RandomForestNCMClassifier()
+        rf.fit(X_train, y_train)
+        data.cache_data(rf, model_name)
 
     # ---------------------------------------- #
     # 4. Score and Predict Test Observations   #
@@ -278,14 +268,14 @@ def main():
         # Probability scores
 
         logging.info('Getting probabilities for test ({})...'.format(argstest))
-        probas_test, pred_proba_test = scores.get_svm_probs(svm, X_test)
+        probas_test, pred_proba_test = scores.get_rf_probs(rf, X_test)
 
         # P-value scores
 
         logging.info('Computing p-values for test ({})...'.format(argstest))
-        pred_test = svm.predict(X_test)
+        pred_test = rf.predict(X_test)
 
-        saved_data_name = 'p_vals_ncms_{}_svm_full_test_phase.p'.format(
+        saved_data_name = 'p_vals_ncms_{}_rf_full_test_phase.p'.format(
             args.pval_consider.replace('-', '_'))
         saved_data_name = os.path.join(saved_data_folder, saved_data_name)
 
@@ -299,7 +289,7 @@ def main():
         if True:
             if args.pval_consider == 'full-train':
                 logging.info('Getting NCMs for train')
-                ncms = scores.get_svm_ncms(svm, X_train, y_train)
+                ncms = scores.get_rf_ncms(rf, X_train, y_train)
                 groundtruth = y_train
             elif args.pval_consider == 'cal-only':
                 logging.info('Using calibration ncms...')
@@ -310,7 +300,7 @@ def main():
                     args.pval_consider))
 
             logging.info('Getting NCMs for test ({})...'.format(argstest))
-            ncms_full_test = scores.get_svm_ncms(svm, X_test, pred_test)
+            ncms_full_test = scores.get_rf_ncms(rf, X_test, pred_test)
 
             p_val_test_dict = scores.compute_p_values_cred_and_conf(
                 train_ncms=ncms,

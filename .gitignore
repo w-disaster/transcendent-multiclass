@@ -3,4 +3,5 @@
 /reports/*
 /timeseries_cred_conf/*
 .DS_Store
+.idea
 venv/
