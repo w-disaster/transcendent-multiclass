@@ -1,6 +1,5 @@
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
-from tqdm import tqdm
 
 from transcend.classifiers.ncm_classifier import \
     NCMClassifier
@@ -11,6 +10,10 @@ class RandomForestNCMClassifier(NCMClassifier, RandomForestClassifier):
     def __init__(self, **kwargs):
         RandomForestClassifier.__init__(self, **kwargs)
         NCMClassifier.__init__(self)
+        self.proximity = None
+        self.train_leaves = None
+        self.X_train = None
+        self.y_train = None
 
     def __compute_proximity(self, leaves, step_size=100):
         """
@@ -59,7 +62,7 @@ class RandomForestNCMClassifier(NCMClassifier, RandomForestClassifier):
 
         return np.array([np.mean(np.sort(proximity[i, self.y_train != y[i]])[-10:]) /
                          np.mean(np.sort(proximity[i, self.y_train == y[i]])[-10:])
-                         for i in tqdm(range(len(y)))])
+                         for i in range(len(y))])
 
     # def per_label_ncm(self, args):
     #     args = yy, idx
