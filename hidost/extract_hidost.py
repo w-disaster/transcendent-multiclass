@@ -15,18 +15,18 @@ import os
 import pickle
 
 # algorithm = 'svm-rbf'
-algorithm = 'rf'
+algorithm = "rf"
 
-hidost_data = '/path/to/hidost'
-batch = 'w08'
+hidost_data = "/path/to/hidost"
+batch = "w08"
 
 
 def main():
     # Load "train" and "test" data
-    in1 = os.path.join(hidost_data, 'pdf-bin/{}-train.libsvm'.format(batch))
+    in1 = os.path.join(hidost_data, "pdf-bin/{}-train.libsvm".format(batch))
     X1, y1 = load_svmlight_file(in1)
 
-    in2 = os.path.join(hidost_data, 'pdf-bin/{}-test.libsvm'.format(batch))
+    in2 = os.path.join(hidost_data, "pdf-bin/{}-test.libsvm".format(batch))
     X2, y2 = load_svmlight_file(in2)
 
     # Vectorize
@@ -35,22 +35,24 @@ def main():
     t = np.array(load_dates(in1) + load_dates(in2))
 
     # Get splits
-    X_train, X_tests, y_train, y_tests, t_train, t_tests = temporal.time_aware_train_test_split(
-        X, y, t, train_size=1, test_size=1, granularity='day')  #, start_date=datetime(2012, 7, 16))
+    X_train, X_tests, y_train, y_tests, t_train, t_tests = (
+        temporal.time_aware_train_test_split(
+            X, y, t, train_size=1, test_size=1, granularity="day"
+        )
+    )  # , start_date=datetime(2012, 7, 16))
 
     def dump(path, stuff):
-        with open(path, 'wb') as f:
+        with open(path, "wb") as f:
             pickle.dump(stuff, f)
             print(f"Dumped to {path}")
-
 
     dump("features/hidost/train_X.p", X_train)
     dump("features/hidost/test_X.p", X_tests)
     dump("features/hidost/train_y.p", y_train)
     dump("features/hidost/test_y.p", y_tests)
 
-    # This can be used to reproduce the original 
-    # Hidost experiments results 
+    # This can be used to reproduce the original
+    # Hidost experiments results
 
     # # Create classifier
     # clf = {
@@ -76,14 +78,14 @@ def load_dates(infile):
     per line. Returns a list of datetime.date objects, in order of
     encounter.
     """
-    datere = re.compile(r'\d{4}/\d{2}/\d{2}')
+    datere = re.compile(r"\d{4}/\d{2}/\d{2}")
     dates = []
-    for line in open(infile, 'r', encoding='utf-8'):
+    for line in open(infile, "r", encoding="utf-8"):
         match = re.search(datere, line)
         if match:
-            dates.append(datetime(*(map(int, match.group().split('/')))))
+            dates.append(datetime(*(map(int, match.group().split("/")))))
     return dates
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

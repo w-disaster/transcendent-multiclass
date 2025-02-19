@@ -14,20 +14,24 @@ settings and different classifiers will require their own functions for
 generating non-conformity measures based on different intuitions.
 
 """
+
 import logging
 
 import numpy as np
 from tqdm import tqdm
+
 
 def get_rf_ncms(clf, X_in, y_in):
     return clf.ncm(X_in, y_in)
 
 
 def get_svm_ncms(clf, X_in, y_in):
-    """Helper functions to get NCMs across an entire pair of X,y arrays. """
-    assert hasattr(clf, 'decision_function')
-    return [get_single_svm_ncm(clf, x, y) for x, y in
-            tqdm(zip(X_in, y_in), total=len(y_in), desc='svm ncms')]
+    """Helper functions to get NCMs across an entire pair of X,y arrays."""
+    assert hasattr(clf, "decision_function")
+    return [
+        get_single_svm_ncm(clf, x, y)
+        for x, y in tqdm(zip(X_in, y_in), total=len(y_in), desc="svm ncms")
+    ]
 
 
 def get_single_svm_ncm(clf, single_x, single_y):
@@ -52,7 +56,7 @@ def get_single_svm_ncm(clf, single_x, single_y):
         float: The NCM for the given `single_x`.
 
     """
-    assert hasattr(clf, 'decision_function')
+    assert hasattr(clf, "decision_function")
     decision = clf.decision_function(single_x)
 
     # If y (ground truth in calibration, prediction in testing) is malware
@@ -61,30 +65,36 @@ def get_single_svm_ncm(clf, single_x, single_y):
         return -decision
     elif single_y == 0:
         return decision
-    raise Exception('Unknown class? Only binary decisions supported.')
+    raise Exception("Unknown class? Only binary decisions supported.")
 
 
-def compute_p_values_cred_and_conf(
-        train_ncms, groundtruth_train, test_ncms, y_test):
+def compute_p_values_cred_and_conf(train_ncms, groundtruth_train, test_ncms, y_test):
     """Helper function to compute p-values across an entire array."""
-    cred = [compute_single_cred_p_value(train_ncms=train_ncms,
-                                        groundtruth_train=groundtruth_train,
-                                        single_test_ncm=ncm,
-                                        single_y_test=y)
-            for ncm, y in tqdm(
-            zip(test_ncms, y_test), total=len(y_test), desc='cred pvals')]
-    conf = [compute_single_conf_p_value(train_ncms=train_ncms,
-                                        groundtruth_train=groundtruth_train,
-                                        single_test_ncm=ncm,
-                                        single_y_test=y)
-            for ncm, y in tqdm(
-            zip(test_ncms, y_test), total=len(y_test), desc='conf pvals')]
+    cred = [
+        compute_single_cred_p_value(
+            train_ncms=train_ncms,
+            groundtruth_train=groundtruth_train,
+            single_test_ncm=ncm,
+            single_y_test=y,
+        )
+        for ncm, y in tqdm(zip(test_ncms, y_test), total=len(y_test), desc="cred pvals")
+    ]
+    conf = [
+        compute_single_conf_p_value(
+            train_ncms=train_ncms,
+            groundtruth_train=groundtruth_train,
+            single_test_ncm=ncm,
+            single_y_test=y,
+        )
+        for ncm, y in tqdm(zip(test_ncms, y_test), total=len(y_test), desc="conf pvals")
+    ]
 
-    return {'cred': cred, 'conf': conf}
+    return {"cred": cred, "conf": conf}
 
 
 def compute_single_cred_p_value(
-        train_ncms, groundtruth_train, single_test_ncm, single_y_test):
+    train_ncms, groundtruth_train, single_test_ncm, single_y_test
+):
     """Compute a single credibility p-value.
 
     Credibility p-values describe how 'conformal' a point is with respect to
@@ -124,14 +134,15 @@ def compute_single_cred_p_value(
         if groundtruth == single_y_test and ncm >= single_test_ncm:
             how_many_are_greater_than_single_test_ncm += 1
 
-    single_cred_p_value = (how_many_are_greater_than_single_test_ncm /
-                           sum(1 for y in groundtruth_train if
-                               y == single_y_test))
+    single_cred_p_value = how_many_are_greater_than_single_test_ncm / sum(
+        1 for y in groundtruth_train if y == single_y_test
+    )
     return single_cred_p_value
 
 
 def compute_single_conf_p_value(
-        train_ncms, groundtruth_train, single_test_ncm, single_y_test):
+    train_ncms, groundtruth_train, single_test_ncm, single_y_test
+):
     """Compute a single confidence p-value.
 
     The confidence p-value is computed similarly to the credibility p-value,
@@ -177,25 +188,28 @@ def compute_single_conf_p_value(
     how_many_are_greater_than_single_test_ncm = 0
 
     for ncm, groundtruth in zip(train_ncms, groundtruth_train):
-        if (groundtruth == single_y_test_opposite_class
-                and ncm >= single_test_ncm_opposite_class):
+        if (
+            groundtruth == single_y_test_opposite_class
+            and ncm >= single_test_ncm_opposite_class
+        ):
             how_many_are_greater_than_single_test_ncm += 1
 
     single_cred_p_value_opposite_class = (
-            how_many_are_greater_than_single_test_ncm /
-            sum(1 for y in groundtruth_train if
-                y == single_y_test_opposite_class))
+        how_many_are_greater_than_single_test_ncm
+        / sum(1 for y in groundtruth_train if y == single_y_test_opposite_class)
+    )
 
     return 1 - single_cred_p_value_opposite_class  # confidence p value
 
 
 def get_rf_probs(clf, X_in):
-    assert hasattr(clf, 'predict_proba')
+    assert hasattr(clf, "predict_proba")
     logging.info(f"SHAPE RF: {X_in.shape}")
     probability_results = clf.predict_proba(X_in)
     probas_cal_fold = [np.max(t) for t in probability_results]
     pred_proba_cal_fold = [np.argmax(t) for t in probability_results]
     return probas_cal_fold, pred_proba_cal_fold
+
 
 def get_svm_probs(clf, X_in):
     """Get scores and predictions for comparison with probabilities.
@@ -218,7 +232,7 @@ def get_svm_probs(clf, X_in):
         (list, list): (Probability scores, probability labels) for `X_in`.
 
     """
-    assert hasattr(clf, 'predict_proba')
+    assert hasattr(clf, "predict_proba")
     probability_results = clf.predict_proba(X_in)
     probas_cal_fold = [np.max(t) for t in probability_results]
     pred_proba_cal_fold = [np.argmax(t) for t in probability_results]

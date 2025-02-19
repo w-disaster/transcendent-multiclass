@@ -1,17 +1,18 @@
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.tree import DecisionTreeClassifier
 
+
 class RF(RandomForestClassifier):
     def __init__(self):
         super().__init__(n_estimators=200)
 
     def decision_function(self, X, y):
         n_of_trees = self.n_estimators
-        
+
         one_preds_count = 0
 
         for tree in range(n_of_trees):
-            if self.estimators_[tree].predict(X)[0] == 1.:
+            if self.estimators_[tree].predict(X)[0] == 1.0:
                 one_preds_count += 1
 
         if y == 1:
@@ -24,6 +25,7 @@ class RF(RandomForestClassifier):
             ncm = one_preds_count / n_of_trees
 
         return ncm
+
 
 def get_rf():
     return RF()

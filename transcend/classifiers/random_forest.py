@@ -1,12 +1,13 @@
 import numpy as np
+from tqdm import tqdm
 from sklearn.ensemble import RandomForestClassifier
 
-from transcend.classifiers.ncm_classifier import \
-    NCMClassifier
+from transcend.classifiers.ncm_classifier import NCMClassifier
+
+eps = np.finfo(np.float64).eps
 
 
 class RandomForestNCMClassifier(NCMClassifier, RandomForestClassifier):
-
     def __init__(self, **kwargs):
         RandomForestClassifier.__init__(self, **kwargs)
         NCMClassifier.__init__(self)
@@ -38,10 +39,10 @@ class RandomForestNCMClassifier(NCMClassifier, RandomForestClassifier):
             end_idx = min(example_idx + step_size, num_examples)
             proximities.append(
                 np.mean(
-                    leaves[..., np.newaxis] == t_leaves[:,
-                                               example_idx:end_idx][np.newaxis,
-                    ...],
-                    axis=1)
+                    leaves[..., np.newaxis]
+                    == t_leaves[:, example_idx:end_idx][np.newaxis, ...],
+                    axis=1,
+                )
             )
             example_idx = end_idx
         return np.concatenate(proximities, axis=1)
@@ -60,30 +61,9 @@ class RandomForestNCMClassifier(NCMClassifier, RandomForestClassifier):
             leaves = self.apply(X)
             proximity = self.__compute_proximity(leaves)
 
-        return np.array([np.mean(np.sort(proximity[i, self.y_train != y[i]])[-10:]) /
-                         np.mean(np.sort(proximity[i, self.y_train == y[i]])[-10:])
-                         for i in range(len(y))])
+        def single_ncm(i):
+            avg_prox_diff = np.mean(np.sort(proximity[i, self.y_train != y[i]])[-10:])
+            avg_prox_eq = np.mean(np.sort(proximity[i, self.y_train == y[i]])[-10:])
+            return avg_prox_diff / (avg_prox_eq + eps)
 
-    # def per_label_ncm(self, args):
-    #     args = yy, idx
-    #     return np.array([np.mean(np.sort(self.proximity_conf[idx, self.y_train != yy[i]])[-10:]) /
-    #                      np.mean(np.sort(self.proximity_conf[idx, self.y_train == yy[i]])[-10:])
-    #                      for i in range(len(yy))])
-    #
-    # def ncm_conf(self, X):
-    #     labels_excluded = self.predict(X)
-    #     unique_labels = np.unique(self.y_train)
-    #
-    #     y = np.array([unique_labels[unique_labels != labels_excluded[i]]
-    #                   for i in range(len(labels_excluded))])
-    #
-    #     if X.equals(self.X_train):
-    #         self.proximity_conf = self.proximity_matrix
-    #     else:
-    #         leaves = self.apply(X)
-    #         self.proximity_conf = self.prox_ncm(leaves)
-    #
-    #     with Pool(16) as p:
-    #         ncms = p.map(self.per_label_ncm, [(yy, i) for i, yy in enumerate(y)])
-    #
-    #     return ncms
+        return np.array([single_ncm(i) for i in tqdm(range(len(y)))])

@@ -7,6 +7,7 @@ thresholding.py
 Functions for deriving and applying thresholds during conformal evaluation.
 
 """
+
 import logging
 import statistics
 
@@ -24,7 +25,8 @@ import transcend.data as data
 
 
 def test_with_rejection(
-        binary_thresholds, test_scores, groundtruth_labels, predicted_labels, full=True):
+    binary_thresholds, test_scores, groundtruth_labels, predicted_labels, full=True
+):
     """Get test results, rejecting predictions based on a given threshold.
 
     `binary_thresholds` expects a dictionary keyed by 'cred' and/or 'conf',
@@ -52,8 +54,8 @@ def test_with_rejection(
             evaluation, this could be either the predicted or ground truth
             labels.
         full (boolean): Optimization flag which dictates how much data to return,
-            default is True. False gives a lot more performance but removes a lot 
-            of metrics. 
+            default is True. False gives a lot more performance but removes a lot
+            of metrics.
 
     Returns:
         dict: A dictionary of results for baseline, kept, and rejected metrics.
@@ -62,13 +64,15 @@ def test_with_rejection(
     keep_mask = apply_threshold(
         binary_thresholds=binary_thresholds,
         test_scores=test_scores,
-        y_test=predicted_labels)
+        y_test=predicted_labels,
+    )
 
     results = get_performance_with_rejection(
         y_true=groundtruth_labels,
         y_pred=predicted_labels,
         keep_mask=keep_mask,
-        full=full)
+        full=full,
+    )
 
     return results, keep_mask
 
@@ -115,42 +119,44 @@ def apply_threshold(binary_thresholds, test_scores, y_test):
 
     """
     # Assert preconditions
-    assert (set(binary_thresholds.keys()) in
-            [{'cred'}, {'conf'}, {'cred', 'conf'}])
+    assert set(binary_thresholds.keys()) in [{"cred"}, {"conf"}, {"cred", "conf"}]
 
     for key in binary_thresholds.keys():
         assert key in test_scores.keys()
-        assert set(binary_thresholds[key].keys()) == {'mw', 'gw'}
+        assert set(binary_thresholds[key].keys()) == {"mw", "gw"}
 
     def get_class_threshold(criteria, k):
-        return (binary_thresholds[criteria]['mw'] if k == 1
-                else binary_thresholds[criteria]['gw'])
+        return (
+            binary_thresholds[criteria]["mw"]
+            if k == 1
+            else binary_thresholds[criteria]["gw"]
+        )
 
     keep_mask = []
     for i, y_prediction in enumerate(y_test):
-
         cred_threshold, conf_threshold = 0, 0
         current_cred, current_conf = 0, 0
 
-        if 'cred' in binary_thresholds:
-            key = 'cred'
+        if "cred" in binary_thresholds:
+            key = "cred"
             current_cred = test_scores[key][i]
             cred_threshold = get_class_threshold(key, y_prediction)
 
-        if 'conf' in binary_thresholds:
-            key = 'conf'
+        if "conf" in binary_thresholds:
+            key = "conf"
             current_conf = test_scores[key][i]
             conf_threshold = get_class_threshold(key, y_prediction)
 
         keep_mask.append(
-            (current_cred >= cred_threshold) and
-            (current_conf >= conf_threshold))
+            (current_cred >= cred_threshold) and (current_conf >= conf_threshold)
+        )
 
     return np.array(keep_mask, dtype=bool)
 
 
 def find_quartile_thresholds(
-        scores, predicted_labels, groundtruth_labels, consider='correct'):
+    scores, predicted_labels, groundtruth_labels, consider="correct"
+):
     """Find the quartile thresholds for a given set of scores.
 
     Here we find thresholds on the correct predictions only and  return
@@ -171,31 +177,21 @@ def find_quartile_thresholds(
 
     """
     scores_mw, scores_gw = sort_by_predicted_label(
-        scores, predicted_labels, groundtruth_labels, consider=consider)
+        scores, predicted_labels, groundtruth_labels, consider=consider
+    )
 
     thresholds = {
-        'q1': {
-            'mw': np.percentile(scores_mw, 25),
-            'gw': np.percentile(scores_gw, 25)
-        },
-        'q2': {
-            'mw': np.percentile(scores_mw, 50),
-            'gw': np.percentile(scores_gw, 50)
-        },
-        'q3': {
-            'mw': np.percentile(scores_mw, 75),
-            'gw': np.percentile(scores_gw, 75)
-        },
-        'mean': {
-            'mw': np.mean(scores_mw),
-            'gw': np.mean(scores_gw)
-        }
+        "q1": {"mw": np.percentile(scores_mw, 25), "gw": np.percentile(scores_gw, 25)},
+        "q2": {"mw": np.percentile(scores_mw, 50), "gw": np.percentile(scores_gw, 50)},
+        "q3": {"mw": np.percentile(scores_mw, 75), "gw": np.percentile(scores_gw, 75)},
+        "mean": {"mw": np.mean(scores_mw), "gw": np.mean(scores_gw)},
     }
     return thresholds
 
 
 def sort_by_predicted_label(
-        scores, predicted_labels, groundtruth_labels, consider='correct'):
+    scores, predicted_labels, groundtruth_labels, consider="correct"
+):
     """Sort scores into lists of their respected predicted classes.
 
     Divide a set of scores into 'predicted positive' and 'predicted
@@ -236,14 +232,14 @@ def sort_by_predicted_label(
     def incorrect(i, k):
         return predicted(i, k) and (groundtruth_labels[i] == (k ^ 1))
 
-    if consider == 'correct':
+    if consider == "correct":
         select = correct
-    elif consider == 'incorrect':
+    elif consider == "incorrect":
         select = incorrect
-    elif consider == 'all':
+    elif consider == "all":
         select = predicted
     else:
-        raise ValueError('Unknown thresholding criteria!')
+        raise ValueError("Unknown thresholding criteria!")
 
     scores_mw = [scores[i] for i in range(len(scores)) if select(i, 1)]
     scores_gw = [scores[i] for i in range(len(scores)) if select(i, 0)]
@@ -252,14 +248,21 @@ def sort_by_predicted_label(
 
 
 def find_random_search_thresholds_with_constraints(
-        scores, predicted_labels, groundtruth_labels, maximise_vals,
-        constraint_vals, max_samples=100, quiet=False, ncpu=-1):
+    scores,
+    predicted_labels,
+    groundtruth_labels,
+    maximise_vals,
+    constraint_vals,
+    max_samples=100,
+    quiet=False,
+    ncpu=-1,
+):
     """Perform a random grid search to find the best thresholds on `scores` in
     parallel.
 
     This method wraps `find_random_search_thresholds_with_constraints_discrete`
     and parallelizes it. For a full description of this, read the documentation
-    of the aformentioned method. 
+    of the aformentioned method.
 
     See Also:
         - `find_random_search_threhsolds_with_constraint_discrete``
@@ -274,9 +277,9 @@ def find_random_search_thresholds_with_constraints(
         max_samples (int): The maximum number of random threshold combinations
             to try before settling for the best performance up to that point.
         quiet (bool): If True, logging will be disabled.
-        
+
         ncpu (int): Number of cpus to use, if negative then we compute it as
-            total_cpu + ncpu, if ncpu=1 then we do not parallelize, this is done 
+            total_cpu + ncpu, if ncpu=1 then we do not parallelize, this is done
             to avoid problems with nested parallelization
 
     Returns:
@@ -284,31 +287,48 @@ def find_random_search_thresholds_with_constraints(
 
     """
 
-    logging.warning('[{}] No cached optimal thresholds.  Computing.'.format(inspect.stack()[1][2]))
+    logging.warning(
+        "[{}] No cached optimal thresholds.  Computing.".format(inspect.stack()[1][2])
+    )
 
     ncpu = mp.cpu_count() + ncpu if ncpu < 0 else ncpu
 
     if ncpu == 1:
         results, thresholds = find_random_search_thresholds_with_constraints_discrete(
-            scores, predicted_labels, groundtruth_labels, maximise_vals,
-            constraint_vals, max_samples, quiet)
+            scores,
+            predicted_labels,
+            groundtruth_labels,
+            maximise_vals,
+            constraint_vals,
+            max_samples,
+            quiet,
+        )
 
         return thresholds
 
     samples = [max_samples // ncpu for _ in range(ncpu)]
 
     with mp.Pool(processes=ncpu) as pool:
-        results = pool.starmap(find_random_search_thresholds_with_constraints_discrete,
-                               zip(repeat(scores), repeat(predicted_labels), repeat(groundtruth_labels),
-                                   repeat(maximise_vals), repeat(constraint_vals), samples, repeat(quiet)))
+        results = pool.starmap(
+            find_random_search_thresholds_with_constraints_discrete,
+            zip(
+                repeat(scores),
+                repeat(predicted_labels),
+                repeat(groundtruth_labels),
+                repeat(maximise_vals),
+                repeat(constraint_vals),
+                samples,
+                repeat(quiet),
+            ),
+        )
 
         results_list = [res[0] for res in results]
         thresholds_list = [res[1] for res in results]
 
     def resolve_keyvals(s):
         if isinstance(s, str):
-            pairs = s.split(',')
-            pairs = [x.split(':') for x in pairs]
+            pairs = s.split(",")
+            pairs = [x.split(":") for x in pairs]
             return {k: float(v) for k, v in pairs}
         return s
 
@@ -327,10 +347,13 @@ def find_random_search_thresholds_with_constraints(
             best_result = result
 
             if not quiet:
-                logging.info('New best: {} {} @ {} '.format(
-                    format_opts(maximise_vals.keys(), result),
-                    format_opts(constraint_vals.keys(), result),
-                    best_thresholds))
+                logging.info(
+                    "New best: {} {} @ {} ".format(
+                        format_opts(maximise_vals.keys(), result),
+                        format_opts(constraint_vals.keys(), result),
+                        best_thresholds,
+                    )
+                )
                 report_results(best_result)
 
             continue
@@ -343,10 +366,13 @@ def find_random_search_thresholds_with_constraints(
                 best_result = result
 
                 if not quiet:
-                    logging.info('New best: {} {} @ {} '.format(
-                        format_opts(maximise_vals.keys(), result),
-                        format_opts(constraint_vals.keys(), result),
-                        best_thresholds))
+                    logging.info(
+                        "New best: {} {} @ {} ".format(
+                            format_opts(maximise_vals.keys(), result),
+                            format_opts(constraint_vals.keys(), result),
+                            best_thresholds,
+                        )
+                    )
                     report_results(best_result)
 
             continue
@@ -356,8 +382,15 @@ def find_random_search_thresholds_with_constraints(
 
 
 def find_random_search_thresholds_with_constraints_discrete(
-        scores, predicted_labels, groundtruth_labels, maximise_vals,
-        constraint_vals, max_samples=100, quiet=False, stop_condition=3000):
+    scores,
+    predicted_labels,
+    groundtruth_labels,
+    maximise_vals,
+    constraint_vals,
+    max_samples=100,
+    quiet=False,
+    stop_condition=3000,
+):
     """Perform a random grid search to find the best thresholds on `scores`.
 
     `scores` expects a dictionary keyed by 'cred' and/or 'conf',
@@ -414,15 +447,16 @@ def find_random_search_thresholds_with_constraints_discrete(
     """
 
     # as this method is called from multiprocessing, we want to make sure each
-    # process has a different seed 
+    # process has a different seed
     seed = 0
-    for l in os.urandom(10): seed += l
+    for l in os.urandom(10):
+        seed += l
     np.random.seed(seed)
 
     def resolve_keyvals(s):
         if isinstance(s, str):
-            pairs = s.split(',')
-            pairs = [x.split(':') for x in pairs]
+            pairs = s.split(",")
+            pairs = [x.split(":") for x in pairs]
             return {k: float(v) for k, v in pairs}
         return s
 
@@ -433,28 +467,31 @@ def find_random_search_thresholds_with_constraints_discrete(
     best_constrained = {k: 0 for k in constraint_vals}
     best_thresholds, best_result = {}, {}
 
-    logging.info('Searching for threshold on calibration data...')
+    logging.info("Searching for threshold on calibration data...")
 
     stop_counter = 0
 
     for _ in tqdm(range(max_samples)):
         # Choose and package random thresholds
         thresholds = {}
-        if 'cred' in scores:
-            cred_thresholds = random_threshold(scores['cred'], predicted_labels)
-            thresholds['cred'] = cred_thresholds
-        if 'conf' in scores:
-            conf_thresholds = random_threshold(scores['conf'], predicted_labels)
-            thresholds['conf'] = conf_thresholds
+        if "cred" in scores:
+            cred_thresholds = random_threshold(scores["cred"], predicted_labels)
+            thresholds["cred"] = cred_thresholds
+        if "conf" in scores:
+            conf_thresholds = random_threshold(scores["conf"], predicted_labels)
+            thresholds["conf"] = conf_thresholds
 
         # Test with chosen thresholds
         result, _ = test_with_rejection(
-            thresholds, scores, groundtruth_labels, predicted_labels)
+            thresholds, scores, groundtruth_labels, predicted_labels
+        )
 
         # Check if any results exceed given constraints (e.g. too many rejects)
         if any([result[k] < constraint_vals[k] for k in constraint_vals]):
             if stop_counter > stop_condition:
-                logging.info('Exceeded stop condition, terminating calibration search...')
+                logging.info(
+                    "Exceeded stop condition, terminating calibration search..."
+                )
                 break
 
             stop_counter += 1
@@ -462,7 +499,9 @@ def find_random_search_thresholds_with_constraints_discrete(
 
         if any([result[k] < best_maximised[k] for k in maximise_vals]):
             if stop_counter > stop_condition:
-                logging.info('Exceeded stop condition, terminating calibration search...')
+                logging.info(
+                    "Exceeded stop condition, terminating calibration search..."
+                )
                 break
 
             stop_counter += 1
@@ -475,10 +514,13 @@ def find_random_search_thresholds_with_constraints_discrete(
             best_result = result
 
             if not quiet:
-                logging.info('New best: {} {} @ {} '.format(
-                    format_opts(maximise_vals.keys(), result),
-                    format_opts(constraint_vals.keys(), result),
-                    best_thresholds))
+                logging.info(
+                    "New best: {} {} @ {} ".format(
+                        format_opts(maximise_vals.keys(), result),
+                        format_opts(constraint_vals.keys(), result),
+                        best_thresholds,
+                    )
+                )
                 report_results(best_result)
 
             stop_counter = 0
@@ -492,10 +534,13 @@ def find_random_search_thresholds_with_constraints_discrete(
                 best_result = result
 
                 if not quiet:
-                    logging.info('New best: {} {} @ {} '.format(
-                        format_opts(maximise_vals.keys(), result),
-                        format_opts(constraint_vals.keys(), result),
-                        best_thresholds))
+                    logging.info(
+                        "New best: {} {} @ {} ".format(
+                            format_opts(maximise_vals.keys(), result),
+                            format_opts(constraint_vals.keys(), result),
+                            best_thresholds,
+                        )
+                    )
                     report_results(best_result)
 
             stop_counter = 0
@@ -508,9 +553,15 @@ def find_random_search_thresholds_with_constraints_discrete(
 
 
 def find_random_search_thresholds(
-        scores, predicted_labels, groundtruth_labels,
-        max_metrics='f1_k,kept_total_perc', min_metrics='f1_r',
-        ceiling=0.25, max_samples=100, objective_func=None):
+    scores,
+    predicted_labels,
+    groundtruth_labels,
+    max_metrics="f1_k,kept_total_perc",
+    min_metrics="f1_r",
+    ceiling=0.25,
+    max_samples=100,
+    objective_func=None,
+):
     """Perform a random grid search to find the best thresholds on `scores`.
 
     `scores` expects a dictionary keyed by 'cred' and/or 'conf',
@@ -581,7 +632,7 @@ def find_random_search_thresholds(
 
     # Resolve possible formats for `max_metrics` and `min_metrics`.
     def resolve_opt_list(x):
-        return x.split(',') if isinstance(x, str) else x
+        return x.split(",") if isinstance(x, str) else x
 
     min_metrics = resolve_opt_list(min_metrics)
     max_metrics = resolve_opt_list(max_metrics)
@@ -589,12 +640,13 @@ def find_random_search_thresholds(
     # Resolve possible formats of `ceiling`.
     ceiling = {} if ceiling is None else ceiling
 
-    ceiling = ({'total_reject_perc': ceiling}
-               if isinstance(ceiling, (int, float)) else ceiling)
+    ceiling = (
+        {"total_reject_perc": ceiling} if isinstance(ceiling, (int, float)) else ceiling
+    )
 
     if isinstance(ceiling, str):
-        pairs = ceiling.split(',')
-        pairs = [x.split(':') for x in pairs]
+        pairs = ceiling.split(",")
+        pairs = [x.split(":") for x in pairs]
         ceiling = {k: float(v) for k, v in pairs}
 
     # Resolve objective function to use during the optimization.
@@ -611,16 +663,17 @@ def find_random_search_thresholds(
     while True:
         # Choose and package random thresholds
         thresholds = {}
-        if 'cred' in scores:
-            cred_thresholds = random_threshold(scores['cred'], predicted_labels)
-            thresholds['cred'] = cred_thresholds
-        if 'conf' in scores:
-            conf_thresholds = random_threshold(scores['conf'], predicted_labels)
-            thresholds['conf'] = conf_thresholds
+        if "cred" in scores:
+            cred_thresholds = random_threshold(scores["cred"], predicted_labels)
+            thresholds["cred"] = cred_thresholds
+        if "conf" in scores:
+            conf_thresholds = random_threshold(scores["conf"], predicted_labels)
+            thresholds["conf"] = conf_thresholds
 
         # Test with chosen thresholds
         results, _ = test_with_rejection(
-            thresholds, scores, groundtruth_labels, predicted_labels, full=False)
+            thresholds, scores, groundtruth_labels, predicted_labels, full=False
+        )
 
         # Check if any results exceed given constraints (e.g. too many rejects)
         unacceptable = [results[k] > v for k, v in ceiling.items()]
@@ -636,21 +689,30 @@ def find_random_search_thresholds(
             best_thresholds = thresholds
             best_results = results
 
-            logging.info('New best: [{:.4f}] @ {} || Max: {}Min: {}'.format(
-                outcome, thresholds,
-                format_opts(max_metrics, results),
-                format_opts(min_metrics, results)))
+            logging.info(
+                "New best: [{:.4f}] @ {} || Max: {}Min: {}".format(
+                    outcome,
+                    thresholds,
+                    format_opts(max_metrics, results),
+                    format_opts(min_metrics, results),
+                )
+            )
             report_results(results)
-            logging.warning('{} combinations sampled so far!'.format(n_samples))
+            logging.warning("{} combinations sampled so far!".format(n_samples))
 
         # If the maximum number of thresholds have been sampled, abort search
         if max_samples is not None and n_samples >= max_samples:
             logging.warning(
-                'Max samples reached ({}) - search aborted'.format(max_samples))
-            logging.info('Settling for: [{}] @ {} || Max: {}Min: {}'.format(
-                best_outcome, best_thresholds,
-                format_opts(max_metrics, best_results),
-                format_opts(min_metrics, best_results)))
+                "Max samples reached ({}) - search aborted".format(max_samples)
+            )
+            logging.info(
+                "Settling for: [{}] @ {} || Max: {}Min: {}".format(
+                    best_outcome,
+                    best_thresholds,
+                    format_opts(max_metrics, best_results),
+                    format_opts(min_metrics, best_results),
+                )
+            )
             report_results(results)
 
             return best_thresholds
@@ -659,17 +721,23 @@ def find_random_search_thresholds(
 
 
 def full_search_with_constraints(
-        scores, predicted_labels, groundtruth_labels, maximise_vals,
-        constraint_vals, quiet=False, ncpu=-1):
+    scores,
+    predicted_labels,
+    groundtruth_labels,
+    maximise_vals,
+    constraint_vals,
+    quiet=False,
+    ncpu=-1,
+):
     """Perform a full search to find the best thresholds on `scores` in
     parallel.
 
     This method wraps `full_search_with_constrains_discrete`
-    and parallelizes it.It performs an exhaustive search on the dataset 
-    to find the best threshold pair for the given constraints. This is clearly 
+    and parallelizes it.It performs an exhaustive search on the dataset
+    to find the best threshold pair for the given constraints. This is clearly
     very computationally expensive as the combinations increase very quickly
     as the dataset grows
-    
+
     See Also:
         - `full_search_with_constraints_discrete``
 
@@ -682,7 +750,7 @@ def full_search_with_constraints(
         constraint_vals: The metrics that are constrained.
         quiet (bool): If True, logging will be disabled.
         ncpu (int): Number of cpus to use, if negative then we compute it as
-            total_cpu + ncpu, if ncpu=1 then we do not parallelize, this is done 
+            total_cpu + ncpu, if ncpu=1 then we do not parallelize, this is done
             to avoid problems with nested parallelization
 
     Returns:
@@ -693,8 +761,8 @@ def full_search_with_constraints(
 
     def resolve_keyvals(s):
         if isinstance(s, str):
-            pairs = s.split(',')
-            pairs = [x.split(':') for x in pairs]
+            pairs = s.split(",")
+            pairs = [x.split(":") for x in pairs]
             return {k: float(v) for k, v in pairs}
 
         return s
@@ -702,25 +770,32 @@ def full_search_with_constraints(
     maximise_vals = resolve_keyvals(maximise_vals)
     constraint_vals = resolve_keyvals(constraint_vals)
 
-    thresholds_generator = all_threshold_tuples(scores['cred'], predicted_labels)
-    full_generator = ({
-        'thresholds': thresholds,
-        'scores': scores,
-        'groundtruth_labels': groundtruth_labels,
-        'predicted_labels': predicted_labels,
-        'idx': idx
-    } for idx, thresholds in enumerate(thresholds_generator))
+    thresholds_generator = all_threshold_tuples(scores["cred"], predicted_labels)
+    full_generator = (
+        {
+            "thresholds": thresholds,
+            "scores": scores,
+            "groundtruth_labels": groundtruth_labels,
+            "predicted_labels": predicted_labels,
+            "idx": idx,
+        }
+        for idx, thresholds in enumerate(thresholds_generator)
+    )
 
     best_maximised = {k: 0 for k in maximise_vals}
     best_constrained = {k: 0 for k in constraint_vals}
     best_thresholds, best_results = {}, {}
 
     with mp.Pool(processes=ncpu) as pool:
-        for res in tqdm(pool.imap_unordered(full_search_with_constraints_discrete, full_generator)):
+        for res in tqdm(
+            pool.imap_unordered(full_search_with_constraints_discrete, full_generator)
+        ):
             if res is not None:
                 result, thresholds, idx = res[0], res[1], res[2]
-                if any([result[k] < constraint_vals[k] for k in constraint_vals]): continue
-                if any([result[k] < best_maximised[k] for k in maximise_vals]): continue
+                if any([result[k] < constraint_vals[k] for k in constraint_vals]):
+                    continue
+                if any([result[k] < best_maximised[k] for k in maximise_vals]):
+                    continue
 
                 if any([result[k] > best_maximised[k] for k in maximise_vals]):
                     best_maximised = {k: result[k] for k in maximise_vals}
@@ -730,14 +805,17 @@ def full_search_with_constraints(
 
                     if not quiet:
                         logging.info(idx)
-                        logging.info('New best: {} {} @ {} '.format(
-                            format_opts(maximise_vals.keys(), result),
-                            format_opts(constraint_vals.keys(), result),
-                            best_thresholds))
+                        logging.info(
+                            "New best: {} {} @ {} ".format(
+                                format_opts(maximise_vals.keys(), result),
+                                format_opts(constraint_vals.keys(), result),
+                                best_thresholds,
+                            )
+                        )
                         try:
                             report_results(best_result)
                         except:
-                            logging.warning('Could not report results...')
+                            logging.warning("Could not report results...")
 
                     continue
 
@@ -750,14 +828,17 @@ def full_search_with_constraints(
 
                         if not quiet:
                             logging.info(idx)
-                            logging.info('New best: {} {} @ {} '.format(
-                                format_opts(maximise_vals.keys(), result),
-                                format_opts(constraint_vals.keys(), result),
-                                best_thresholds))
+                            logging.info(
+                                "New best: {} {} @ {} ".format(
+                                    format_opts(maximise_vals.keys(), result),
+                                    format_opts(constraint_vals.keys(), result),
+                                    best_thresholds,
+                                )
+                            )
                             try:
                                 report_results(best_result)
                             except:
-                                logging.warning('Could not report results...')
+                                logging.warning("Could not report results...")
                         continue
 
     return best_thresholds
@@ -765,37 +846,41 @@ def full_search_with_constraints(
 
 def full_search_with_constraints_discrete(o):
     """Helper method to compute the used by `full_search_with_constraints_discrete`
-    to evaluate thresholds on the dataset. 
-    
+    to evaluate thresholds on the dataset.
+
     See Also:
         - `full_search_with_constraints_discrete`
     Args:
         o (dict): A dictionary with 'thresholds', 'scores', 'groundtruth_labels',
-            'predicted_labels', 'idx' as created by `full_search_with_constraints_discrete` 
+            'predicted_labels', 'idx' as created by `full_search_with_constraints_discrete`
     Returns:
         3-tuple: results, thresholds, id
-    
+
     """
 
-    thresholds_unfiltered, scores = o['thresholds'], o['scores']
-    groundtruth_labels, predicted_labels = o['groundtruth_labels'], o['predicted_labels']
-    idx = o['idx']
+    thresholds_unfiltered, scores = o["thresholds"], o["scores"]
+    groundtruth_labels, predicted_labels = (
+        o["groundtruth_labels"],
+        o["predicted_labels"],
+    )
+    idx = o["idx"]
 
     # Choose and package random thresholds
     thresholds = {}
-    if 'cred' in scores:
-        thresholds['cred'] = thresholds_unfiltered
-    if 'conf' in scores:
-        thresholds['conf'] = thresholds_unfiltered
+    if "cred" in scores:
+        thresholds["cred"] = thresholds_unfiltered
+    if "conf" in scores:
+        thresholds["conf"] = thresholds_unfiltered
 
     results, _ = test_with_rejection(
-        thresholds, scores, groundtruth_labels, predicted_labels)
+        thresholds, scores, groundtruth_labels, predicted_labels
+    )
 
     return (results, thresholds, idx)
 
 
 def all_threshold_tuples(scores, predicted_labels):
-    """Produce a generator of all possible combinations of thresholds. 
+    """Produce a generator of all possible combinations of thresholds.
 
     Args:
         scores (dict): The test scores on which to produce a threshold.
@@ -803,11 +888,12 @@ def all_threshold_tuples(scores, predicted_labels):
             'per-class' threshold to use.
 
     Returns:
-        dict: Set of thresholds for malware ('gw') and goodware ('gw') classes as 
+        dict: Set of thresholds for malware ('gw') and goodware ('gw') classes as
         a generator.
     """
     scores_mw, scores_gw = sort_by_predicted_label(
-        scores, predicted_labels, np.array([]), 'all')
+        scores, predicted_labels, np.array([]), "all"
+    )
 
     # remove duplicates to save some iterations
     scores_mw = set(scores_mw)
@@ -815,7 +901,7 @@ def all_threshold_tuples(scores, predicted_labels):
 
     for mw_threshold in scores_mw:
         for gw_threshold in scores_gw:
-            yield {'mw': mw_threshold, 'gw': gw_threshold}
+            yield {"mw": mw_threshold, "gw": gw_threshold}
 
 
 def random_threshold(scores, predicted_labels):
@@ -831,10 +917,11 @@ def random_threshold(scores, predicted_labels):
 
     """
     scores_mw, scores_gw = sort_by_predicted_label(
-        scores, predicted_labels, np.array([]), 'all')
+        scores, predicted_labels, np.array([]), "all"
+    )
     mw_threshold = np.random.uniform(min(scores_mw), max(scores_mw))
     gw_threshold = np.random.uniform(min(scores_gw), max(scores_gw))
-    return {'mw': mw_threshold, 'gw': gw_threshold}
+    return {"mw": mw_threshold, "gw": gw_threshold}
 
 
 def get_performance_with_rejection(y_true, y_pred, keep_mask, full=True):
@@ -877,56 +964,66 @@ def get_performance_with_rejection(y_true, y_pred, keep_mask, full=True):
     reject_neg = total_neg - kept_neg
     reject_pos = total_pos - kept_pos
 
-    kept_neg_perc = (kept_neg / total_neg)
-    kept_pos_perc = (kept_pos / total_pos)
+    kept_neg_perc = kept_neg / total_neg
+    kept_pos_perc = kept_pos / total_pos
 
     reject_neg_perc = 1 - kept_neg_perc
     reject_pos_perc = 1 - kept_pos_perc
 
-    d.update({'total_neg': total_neg,
-              'total_pos': total_pos,
-              'kept_total_perc': kept_total_perc,
-              'reject_total_perc': reject_total_perc,
-              'kept_neg': kept_neg, 'kept_pos': kept_pos,
-              'reject_neg': reject_neg, 'reject_pos': reject_pos,
-              'kept_neg_perc': kept_neg_perc,
-              'kept_pos_perc': kept_pos_perc,
-              'reject_neg_perc': reject_neg_perc,
-              'reject_pos_perc': reject_pos_perc})
+    d.update(
+        {
+            "total_neg": total_neg,
+            "total_pos": total_pos,
+            "kept_total_perc": kept_total_perc,
+            "reject_total_perc": reject_total_perc,
+            "kept_neg": kept_neg,
+            "kept_pos": kept_pos,
+            "reject_neg": reject_neg,
+            "reject_pos": reject_pos,
+            "kept_neg_perc": kept_neg_perc,
+            "kept_pos_perc": kept_pos_perc,
+            "reject_neg_perc": reject_neg_perc,
+            "reject_pos_perc": reject_pos_perc,
+        }
+    )
 
-    f1_b = metrics.f1_score(y_true, y_pred, average='micro')
-    f1_k = metrics.f1_score(y_true[keep_mask],
-                            y_pred[keep_mask], average='micro')
-    f1_r = metrics.f1_score(y_true[~keep_mask],
-                            y_pred[~keep_mask], average='micro')
+    f1_b = metrics.f1_score(y_true, y_pred, average="micro")
+    f1_k = metrics.f1_score(y_true[keep_mask], y_pred[keep_mask], average="micro")
+    f1_r = metrics.f1_score(y_true[~keep_mask], y_pred[~keep_mask], average="micro")
 
-    d.update({'f1_b': f1_b, 'f1_k': f1_k, 'f1_r': f1_r})
+    d.update({"f1_b": f1_b, "f1_k": f1_k, "f1_r": f1_r})
 
-    precision_b = metrics.precision_score(y_true, y_pred, average='micro')
+    precision_b = metrics.precision_score(y_true, y_pred, average="micro")
 
-    precision_k = metrics.precision_score(y_true[keep_mask],
-                                          y_pred[keep_mask], average='micro')
-    precision_r = metrics.precision_score(y_true[~keep_mask],
-                                          y_pred[~keep_mask], average='micro')
-    d.update({'precision_b': precision_b,
-              'precision_k': precision_k,
-              'precision_r': precision_r})
+    precision_k = metrics.precision_score(
+        y_true[keep_mask], y_pred[keep_mask], average="micro"
+    )
+    precision_r = metrics.precision_score(
+        y_true[~keep_mask], y_pred[~keep_mask], average="micro"
+    )
+    d.update(
+        {
+            "precision_b": precision_b,
+            "precision_k": precision_k,
+            "precision_r": precision_r,
+        }
+    )
 
-    recall_b = metrics.recall_score(y_true, y_pred, average='micro')
+    recall_b = metrics.recall_score(y_true, y_pred, average="micro")
 
-    recall_k = metrics.recall_score(y_true[keep_mask],
-                                    y_pred[keep_mask], average='micro')
-    recall_r = metrics.recall_score(y_true[~keep_mask],
-                                    y_pred[~keep_mask], average='micro')
-    d.update({'recall_b': recall_b, 'recall_k': recall_k, 'recall_r': recall_r})
+    recall_k = metrics.recall_score(
+        y_true[keep_mask], y_pred[keep_mask], average="micro"
+    )
+    recall_r = metrics.recall_score(
+        y_true[~keep_mask], y_pred[~keep_mask], average="micro"
+    )
+    d.update({"recall_b": recall_b, "recall_k": recall_k, "recall_r": recall_r})
 
     if full:
         cf_baseline = metrics.confusion_matrix(y_true, y_pred)
 
-        cf_keep = metrics.confusion_matrix(y_true[keep_mask],
-                                           y_pred[keep_mask])
-        cf_reject = metrics.confusion_matrix(y_true[~keep_mask],
-                                             y_pred[~keep_mask])
+        cf_keep = metrics.confusion_matrix(y_true[keep_mask], y_pred[keep_mask])
+        cf_reject = metrics.confusion_matrix(y_true[~keep_mask], y_pred[~keep_mask])
         try:
             tn_b, fp_b, fn_b, tp_b = cf_baseline.ravel()
             tn_k, fp_k, fn_k, tp_k = cf_keep.ravel()
@@ -934,19 +1031,30 @@ def get_performance_with_rejection(y_true, y_pred, keep_mask, full=True):
         except:
             return d
 
-        d.update({
-            'tn_b': tn_b, 'fp_b': fp_b, 'fn_b': fn_b, 'tp_b': tp_b,
-            'tn_k': tn_k, 'fp_k': fp_k, 'fn_k': fn_k, 'tp_k': tp_k,
-            'tn_r': tn_r, 'fp_r': fp_r, 'fn_r': fn_r, 'tp_r': tp_r
-        })
+        d.update(
+            {
+                "tn_b": tn_b,
+                "fp_b": fp_b,
+                "fn_b": fn_b,
+                "tp_b": tp_b,
+                "tn_k": tn_k,
+                "fp_k": fp_k,
+                "fn_k": fn_k,
+                "tp_k": tp_k,
+                "tn_r": tn_r,
+                "fp_r": fp_r,
+                "fn_r": fn_r,
+                "tp_r": tp_r,
+            }
+        )
 
-        d['tpr_b'] = tp_b / (tp_b + fn_b)
-        d['tpr_k'] = tp_k / (tp_k + fn_k)
-        d['tpr_r'] = tp_r / (tp_r + fn_r)
+        d["tpr_b"] = tp_b / (tp_b + fn_b)
+        d["tpr_k"] = tp_k / (tp_k + fn_k)
+        d["tpr_r"] = tp_r / (tp_r + fn_r)
 
-        d['fpr_b'] = fp_b / (fp_b + tn_b)
-        d['fpr_k'] = fp_k / (fp_k + tn_k)
-        d['fpr_r'] = fp_r / (fp_r + tn_r)
+        d["fpr_b"] = fp_b / (fp_b + tn_b)
+        d["fpr_k"] = fp_k / (fp_k + tn_k)
+        d["fpr_r"] = fp_r / (fp_r + tn_r)
 
     return d
 
@@ -962,46 +1070,52 @@ def report_results(d, quiet=False):
         str: A textual report of the results.
 
     """
-    report_str = ''
+    report_str = ""
 
     def print_and_extend(report_line):
         nonlocal report_str
         if not quiet:
-            cprint(report_line, 'yellow')
-        report_str += report_line + '\n'
+            cprint(report_line, "yellow")
+        report_str += report_line + "\n"
 
-    s = '% kept elements: {:.1f}, % rejected elements: {:.1f}'.format(
-        d['kept_total_perc'] * 100, d['reject_total_perc'] * 100)
+    s = "% kept elements: {:.1f}, % rejected elements: {:.1f}".format(
+        d["kept_total_perc"] * 100, d["reject_total_perc"] * 100
+    )
     print_and_extend(s)
 
-    s = '% benign kept: {:.1f}, % benign rejected: {:.1f}'.format(
-        d['kept_neg_perc'] * 100, d['reject_neg_perc'] * 100)
-
-    print_and_extend(s)
-
-    s = '% malware kept: {:.1f}, % malware rejected: {:.1f}'.format(
-        d['kept_pos_perc'] * 100, d['reject_pos_perc'] * 100)
+    s = "% benign kept: {:.1f}, % benign rejected: {:.1f}".format(
+        d["kept_neg_perc"] * 100, d["reject_neg_perc"] * 100
+    )
 
     print_and_extend(s)
 
-    s = ('F1 baseline:  {:>12.2f} | '
-         'F1 keep:      {:>12.2f} | '
-         'F1 reject:    {:>12.2f}').format(
-        d['f1_b'], d['f1_k'], d['f1_r'])
+    s = "% malware kept: {:.1f}, % malware rejected: {:.1f}".format(
+        d["kept_pos_perc"] * 100, d["reject_pos_perc"] * 100
+    )
 
     print_and_extend(s)
 
-    s = ('Pr baseline:  {:>12.2f} | '
-         'Pr keep:      {:>12.2f} | '
-         'Pr reject:    {:>12.2f}'.format(
-        d['precision_b'], d['precision_k'], d['precision_r']))
+    s = (
+        "F1 baseline:  {:>12.2f} | F1 keep:      {:>12.2f} | F1 reject:    {:>12.2f}"
+    ).format(d["f1_b"], d["f1_k"], d["f1_r"])
 
     print_and_extend(s)
 
-    s = ('Rec baseline: {:>12.2f} | '
-         'Rec keep:     {:>12.2f} | '
-         'Rec reject:   {:>12.2f}'.format(
-        d['recall_b'], d['recall_k'], d['recall_r']))
+    s = (
+        "Pr baseline:  {:>12.2f} | "
+        "Pr keep:      {:>12.2f} | "
+        "Pr reject:    {:>12.2f}".format(
+            d["precision_b"], d["precision_k"], d["precision_r"]
+        )
+    )
+
+    print_and_extend(s)
+
+    s = (
+        "Rec baseline: {:>12.2f} | "
+        "Rec keep:     {:>12.2f} | "
+        "Rec reject:   {:>12.2f}".format(d["recall_b"], d["recall_k"], d["recall_r"])
+    )
 
     print_and_extend(s)
 
@@ -1042,7 +1156,10 @@ def report_results(d, quiet=False):
 
 def format_opts(metrics, results):
     """Helper function for formatting the results of a list of metrics."""
-    return ('{}: {:.4f} | ' * len(metrics)).format(
-        *[item for sublist in
-          zip(metrics, [results[k] for k in metrics]) for
-          item in sublist])
+    return ("{}: {:.4f} | " * len(metrics)).format(
+        *[
+            item
+            for sublist in zip(metrics, [results[k] for k in metrics])
+            for item in sublist
+        ]
+    )
