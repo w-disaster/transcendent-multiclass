@@ -180,26 +180,19 @@ def compute_single_conf_p_value(
     """
     # assert len(set(groundtruth_train)) == 2  # binary classification tasks only
 
+    opposite_classes = np.unique(groundtruth_train[groundtruth_train != single_y_test])
+
     # 'Cast' NCMs to NCMs with respect to the opposite class (binary only)
     # train_ncms_opposite_class = -1 * np.array(train_ncms)
-    single_y_test_opposite_class = 0 if single_y_test == 1 else 1
-    single_test_ncm_opposite_class = -1 * single_test_ncm
 
-    how_many_are_greater_than_single_test_ncm = 0
+    per_class_pvalues = []
+    for op_class in opposite_classes:
+        train_ncms_op_class = train_ncms[groundtruth_train == op_class]
+        p_value_op_class = (len(train_ncms_op_class[train_ncms_op_class >= single_test_ncm]) /
+                            len(train_ncms_op_class))
+        per_class_pvalues.append(p_value_op_class)
 
-    for ncm, groundtruth in zip(train_ncms, groundtruth_train):
-        if (
-            groundtruth == single_y_test_opposite_class
-            and ncm >= single_test_ncm_opposite_class
-        ):
-            how_many_are_greater_than_single_test_ncm += 1
-
-    single_cred_p_value_opposite_class = (
-        how_many_are_greater_than_single_test_ncm
-        / sum(1 for y in groundtruth_train if y == single_y_test_opposite_class)
-    )
-
-    return 1 - single_cred_p_value_opposite_class  # confidence p value
+    return 1 - max(per_class_pvalues)  # confidence p value
 
 
 def get_rf_probs(clf, X_in):

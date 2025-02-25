@@ -167,6 +167,7 @@ def train_calibration_ice(
 
     logging.debug("Getting training ncms for fold {}...".format(fold_index))
     groundtruth_proper_train_fold = y_proper_train
+    ncms_train_fold = scores.get_rf_ncms(rf, X_proper_train, y_proper_train)
 
     # Get ncms for calibration fold
 
@@ -181,28 +182,19 @@ def train_calibration_ice(
     saved_ncms_name = "ncms_rf_cal_fold_{}.p".format(fold_index)
     saved_ncms_name = os.path.join(saved_data_folder, saved_ncms_name)
 
-    if os.path.exists(saved_ncms_name):
-        ncms_cal_fold = data.load_cached_data(saved_ncms_name)
-    else:
-        # ncms_cal_fold = scores.get_svm_ncms(svm, X_cal, y_cal)
-        ncms_cal_fold = scores.get_rf_ncms(rf, X_cal, y_cal)
-        data.cache_data(ncms_cal_fold, saved_ncms_name)
+    ncms_cal_fold = scores.get_rf_ncms(rf, X_cal, y_cal)
+    data.cache_data(ncms_cal_fold, saved_ncms_name)
 
     saved_pvals_name = "p_vals_rf_cal_fold_{}.p".format(fold_index)
     saved_pvals_name = os.path.join(saved_data_folder, saved_pvals_name)
 
-    if os.path.exists(saved_pvals_name):
-        p_val_cal_fold_dict = data.load_cached_data(saved_pvals_name)
-    else:
-        # TODO | Doublecheck implications of duplicating the reference
-        # TODO | point in the 'train_ncms'
-        p_val_cal_fold_dict = scores.compute_p_values_cred_and_conf(
-            train_ncms=ncms_cal_fold,
-            groundtruth_train=groundtruth_cal_fold,
-            test_ncms=ncms_cal_fold,
-            y_test=groundtruth_cal_fold,
-        )
-        data.cache_data(p_val_cal_fold_dict, saved_pvals_name)
+    p_val_cal_fold_dict = scores.compute_p_values_cred_and_conf(
+        train_ncms=ncms_train_fold,
+        groundtruth_train=groundtruth_proper_train_fold,
+        test_ncms=ncms_cal_fold,
+        y_test=groundtruth_cal_fold,
+    )
+    data.cache_data(p_val_cal_fold_dict, saved_pvals_name)
 
     # Compute values for calibration probabilities
     logging.debug("Computing cal probas for fold {}...".format(fold_index))
