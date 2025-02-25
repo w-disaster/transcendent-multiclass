@@ -1,8 +1,17 @@
-# Transcendent Code
+# Transcendent Code (Fork)
 
 Using conformal evaluation to detect concept drift affecting malware detection.
 
 For more information, you can see the project page: https://s2lab.cs.ucl.ac.uk/projects/transcend/
+
+## Notes about this fork
+
+In this fork, several changes were made to enable Transcendent to handle multiclass problems. 
+These changes affect only the ICE solution, as it is the most practical approach.
+
+A Non-Conformity Measure (NCM) based on Random Forest proximities, as presented [here](https://inria.hal.science/hal-01060649/document), has been implemented. Additionally, the confidence score function was modified to support multiple classes.
+
+For time reasons, the thresholding phase is left out of the scope, so it should be derived manually or using a user defined function.
 
 ## What is Transcend and Conformal Evaluation? 
 
