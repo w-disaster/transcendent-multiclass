@@ -6,11 +6,10 @@ For more information, you can see the project page: https://s2lab.cs.ucl.ac.uk/p
 
 ## Notes about this fork
 
-On this fork, some changes were made to enable Transcendent to perform on multiclass problems.
-The changes affect the ICE solution only, as it is the most practical one among the others.
+In this fork, several changes were made to enable Transcendent to handle multiclass problems. 
+These changes affect only the ICE solution, as it is the most practical approach.
 
-A Non-Conformity Measure (NCM) based on Random Forest proximities, presented [here](https://inria.hal.science/hal-01060649/document) is implemented.
-Secondly, the confidence score function was changed to work for multiple classes.
+A Non-Conformity Measure (NCM) based on Random Forest proximities, as presented [here](https://inria.hal.science/hal-01060649/document), has been implemented. Additionally, the confidence score function was modified to support multiple classes.
 
 ## What is Transcend and Conformal Evaluation? 
 
