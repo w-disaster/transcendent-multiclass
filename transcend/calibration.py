@@ -156,12 +156,9 @@ def train_calibration_ice(
     model_name = "rf_cal_fold_{}.p".format(fold_index)
     model_name = os.path.join(saved_data_folder, model_name)
 
-    if os.path.exists(model_name):
-        rf = data.load_cached_data(model_name)
-    else:
-        rf = RandomForestNCMClassifier()
-        rf.fit(X_proper_train, y_proper_train)
-        data.cache_data(rf, model_name)
+    rf = RandomForestNCMClassifier()
+    rf.fit(X_proper_train, y_proper_train)
+    data.cache_data(rf, model_name)
 
     # Get ncms for proper training fold
 
@@ -200,7 +197,7 @@ def train_calibration_ice(
     logging.debug("Computing cal probas for fold {}...".format(fold_index))
     probas_cal_fold, pred_proba_cal_fold = scores.get_rf_probs(
         rf, X_cal
-    )  # scores.get_svm_probs(svm, X_cal)
+    )  # scores.get_svm_probs(svm, X_cal)q
 
     return {
         # Calibration credibility p values

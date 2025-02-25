@@ -188,8 +188,9 @@ def compute_single_conf_p_value(
     per_class_pvalues = []
     for op_class in opposite_classes:
         train_ncms_op_class = train_ncms[groundtruth_train == op_class]
-        p_value_op_class = (len(train_ncms_op_class[train_ncms_op_class >= single_test_ncm]) /
-                            len(train_ncms_op_class))
+        p_value_op_class = len(
+            train_ncms_op_class[train_ncms_op_class >= single_test_ncm]
+        ) / len(train_ncms_op_class)
         per_class_pvalues.append(p_value_op_class)
 
     return 1 - max(per_class_pvalues)  # confidence p value
