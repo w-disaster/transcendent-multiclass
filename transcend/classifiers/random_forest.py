@@ -62,8 +62,10 @@ class RandomForestNCMClassifier(NCMClassifier, RandomForestClassifier):
             proximity = self.__compute_proximity(leaves)
 
         def single_ncm(i):
-            avg_prox_diff = np.mean(np.sort(proximity[i, self.y_train != y[i]])[-10:])
-            avg_prox_eq = np.mean(np.sort(proximity[i, self.y_train == y[i]])[-10:])
+            avg_prox_diff = np.mean(np.sort(proximity[i, self.y_train != y[i]])[-5:])
+            avg_prox_eq = np.mean(np.sort(proximity[i, self.y_train == y[i]])[-5:])
             return avg_prox_diff / (avg_prox_eq + eps)
 
-        return np.array([single_ncm(i) for i in tqdm(range(len(y)))])
+        return np.array(
+            [single_ncm(i) for i in tqdm(range(len(y)), total=len(y), desc="rf ncm")]
+        )
