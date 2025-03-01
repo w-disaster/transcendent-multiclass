@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+from multiprocessing import Pool
+from functools import partial
+import time
+from p_tqdm import p_map
 
 """
 scores.py
@@ -18,7 +22,9 @@ generating non-conformity measures based on different intuitions.
 import logging
 
 import numpy as np
+import pandas as pd
 from tqdm import tqdm
+from multiprocessing import Pool, shared_memory
 
 
 def get_rf_ncms(clf, X_in, y_in):
@@ -68,9 +74,38 @@ def get_single_svm_ncm(clf, single_x, single_y):
     raise Exception("Unknown class? Only binary decisions supported.")
 
 
-def compute_p_values_cred_and_conf(train_ncms, groundtruth_train, test_ncms, y_test):
-    """Helper function to compute p-values across an entire array."""
-    cred = [
+def compute_p_values_cred_and_conf(clf, train_ncms, groundtruth_train, test_ncms, y_test, X_test):
+    return {
+        "conf": compute_confidence_scores(clf, train_ncms, groundtruth_train, y_test, X_test),
+        "cred": compute_credibility_scores(train_ncms, groundtruth_train, test_ncms, y_test)
+    }
+
+
+def creds(args):
+    i, n, m, op_y_labels = args
+
+    existing_shm_train_ncms = shared_memory.SharedMemory(name=train_ncms_shm_name)
+    train_ncms = np.ndarray(train_ncms_len, dtype=train_ncms_dtype, buffer=existing_shm_train_ncms.buf)
+
+    existing_shm_groundtruth_train = shared_memory.SharedMemory(name=groundtruth_train_shm_name)
+    groundtruth_train = np.ndarray(groundtruth_train_len, dtype=groundtruth_train_dtype,
+                                   buffer=existing_shm_groundtruth_train.buf)
+
+    existing_shm_ncms = shared_memory.SharedMemory(name=ncms_shm_name)
+    ncms_X_test_op_y_label = np.ndarray(ncms_shm_len, dtype=ncms_shm_dtype, buffer=existing_shm_ncms.buf)
+
+    def partial_f(single_ncm_test, single_y_test):
+        return compute_single_cred_p_value(train_ncms=train_ncms,
+                                           groundtruth_train=groundtruth_train,
+                                           single_y_test=single_y_test,
+                                           single_test_ncm=single_ncm_test)
+
+    return 1 - max([partial_f(single_ncm_test=ncm, single_y_test=op_y) for ncm, op_y in
+                    zip([ncms_X_test_op_y_label[i + k * m] for k in range(n)], op_y_labels)])
+
+
+def compute_credibility_scores(train_ncms, groundtruth_train, test_ncms, y_test):
+    return [
         compute_single_cred_p_value(
             train_ncms=train_ncms,
             groundtruth_train=groundtruth_train,
@@ -79,21 +114,73 @@ def compute_p_values_cred_and_conf(train_ncms, groundtruth_train, test_ncms, y_t
         )
         for ncm, y in tqdm(zip(test_ncms, y_test), total=len(y_test), desc="cred pvals")
     ]
-    conf = [
-        compute_single_conf_p_value(
-            train_ncms=train_ncms,
-            groundtruth_train=groundtruth_train,
-            single_test_ncm=ncm,
-            single_y_test=y,
-        )
-        for ncm, y in tqdm(zip(test_ncms, y_test), total=len(y_test), desc="conf pvals")
-    ]
 
-    return {"cred": cred, "conf": conf}
+
+def compute_confidence_scores(clf, train_ncms, groundtruth_train, y_test, X_test):
+    unique_y_test_labels = np.unique(y_test)
+    y_test_series = pd.Series(y_test, index=X_test.index)
+
+    # Allocate shared memory for multiprocessing
+
+    train_ncms_shm = shared_memory.SharedMemory(create=True, size=train_ncms.nbytes)
+    train_ncms_shm_arr = np.ndarray(train_ncms.shape, dtype=train_ncms.dtype, buffer=train_ncms_shm.buf)
+    np.copyto(train_ncms_shm_arr, train_ncms)
+    global train_ncms_shm_name, train_ncms_len, train_ncms_dtype
+    train_ncms_shm_name, train_ncms_len, train_ncms_dtype = train_ncms_shm.name, groundtruth_train.shape, train_ncms.dtype
+
+    groundtruth_train_shm = shared_memory.SharedMemory(create=True, size=groundtruth_train.nbytes)
+    groundtruth_train_shm_arr = np.ndarray(groundtruth_train.shape, dtype=groundtruth_train.dtype,
+                                           buffer=groundtruth_train_shm.buf)
+    np.copyto(groundtruth_train_shm_arr, groundtruth_train)
+    global groundtruth_train_shm_name, groundtruth_train_len, groundtruth_train_dtype
+    groundtruth_train_shm_name, groundtruth_train_len, groundtruth_train_dtype = (
+        groundtruth_train_shm.name, groundtruth_train.shape,
+        groundtruth_train.dtype)
+
+    conf_X_test = []
+    for y in tqdm(unique_y_test_labels, total=len(unique_y_test_labels), desc="label conf"):
+        op_y_labels = unique_y_test_labels[unique_y_test_labels != y]
+        X_test_y = X_test[y_test_series == y]
+
+        m = X_test_y.shape[0]
+        n = len(op_y_labels)
+
+        M = pd.concat([X_test_y] * n, ignore_index=True)
+        Y = np.concat([np.full(m, op_y_label) for op_y_label in op_y_labels])
+
+        t_start = time.time()
+        ncms_X_test_op_y_label = clf.ncm(M, Y)
+        logging.info(f"TIME RF: {time.time() - t_start}")
+
+        ncms_shm = shared_memory.SharedMemory(create=True, size=ncms_X_test_op_y_label.nbytes)
+        ncms_shm_arr = np.ndarray(ncms_X_test_op_y_label.shape, dtype=ncms_X_test_op_y_label.dtype,
+                                  buffer=ncms_shm.buf)
+        np.copyto(ncms_shm_arr, ncms_X_test_op_y_label)
+        global ncms_shm_name, ncms_shm_len, ncms_shm_dtype
+        ncms_shm_name, ncms_shm_len, ncms_shm_dtype = (ncms_shm.name, ncms_X_test_op_y_label.shape,
+                                                       ncms_X_test_op_y_label.dtype)
+
+        t_start = time.time()
+        with Pool(32) as p:
+            conf_X_test_y = p.map(creds, [(i, n, m, op_y_labels) for i in range(m)])
+
+        logging.info(f"TIME POOL: {time.time() - t_start}")
+        ncms_shm.close()
+        ncms_shm.unlink()
+
+        conf_X_test_y = pd.DataFrame(conf_X_test_y, index=X_test_y.index)
+        conf_X_test.append(conf_X_test_y)
+
+    train_ncms_shm.close()
+    train_ncms_shm.unlink()
+    groundtruth_train_shm.close()
+    groundtruth_train_shm.unlink()
+    _, conf_X_test = X_test.align(pd.concat(conf_X_test, axis=0), axis=0)
+    return conf_X_test
 
 
 def compute_single_cred_p_value(
-    train_ncms, groundtruth_train, single_test_ncm, single_y_test
+        train_ncms, groundtruth_train, single_test_ncm, single_y_test
 ):
     """Compute a single credibility p-value.
 
@@ -107,93 +194,11 @@ def compute_single_cred_p_value(
     out of all other malware points. It will have the smallest NCM (as it is
     the least _non-conforming_) and thus no other points will have a greater
     NCM and it will have a credibility p-value of 1.
-
-    Args:
-        train_ncms (np.ndarray): An array of training NCMs to compare the
-            reference point against.
-        groundtruth_train (np.ndarray): An array of ground truths corresponding
-            to `train_ncms`.
-        single_test_ncm (float): A single reference point to compute the
-            p-value of.
-        single_y_test (int): Either the ground truth (calibration) or predicted
-            label (testing) of `single_test_ncm`.
-
-    See Also:
-        - `compute_p_values_cred_and_conf`
-        - `compute_single_conf_p_value`
-
-    Returns:
-        float: The p-value for `single_test_ncm` w.r.t. `train_ncms`.
-
     """
-    # assert len(set(groundtruth_train)) == 2  # binary classification tasks only
 
-    how_many_are_greater_than_single_test_ncm = 0
-
-    for ncm, groundtruth in zip(train_ncms, groundtruth_train):
-        if groundtruth == single_y_test and ncm >= single_test_ncm:
-            how_many_are_greater_than_single_test_ncm += 1
-
-    single_cred_p_value = how_many_are_greater_than_single_test_ncm / sum(
-        1 for y in groundtruth_train if y == single_y_test
-    )
+    mask = groundtruth_train == single_y_test
+    single_cred_p_value = sum((train_ncms >= single_test_ncm) & (mask)) / sum(mask)
     return single_cred_p_value
-
-
-def compute_single_conf_p_value(
-    train_ncms, groundtruth_train, single_test_ncm, single_y_test
-):
-    """Compute a single confidence p-value.
-
-    The confidence p-value is computed similarly to the credibility p-value,
-    except it aims to capture the confidence that the classifier has that the
-    point _doesn't_ belong to the opposite class.
-
-    To achieve this we assume that point has the label of the second highest
-    scoring class---in binary classification, simply the opposite class---and
-    compute the credibility p-value with respect to other points of that class.
-    The confidence p-value is (1 - this value).
-
-    Note that in transductive conformal evaluation, the entire classifier
-    should be retrained with the reference point given the label of the
-    opposite class. Usually, this is computationally prohibitive, and so this
-    approximation assumes that the decision boundary undergoes only minimal
-    changes when the label of a single point is flipped.
-
-    See Also:
-        - `compute_p_values_cred_and_conf`
-        - `compute_single_cred_p_value`
-
-    Args:
-        train_ncms (np.ndarray): An array of training NCMs to compare the
-            reference point against.
-        groundtruth_train (np.ndarray): An array of ground truths corresponding
-            to `train_ncms`.
-        single_test_ncm (float): A single reference point to compute the
-            p-value of.
-        single_y_test (int): Either the ground truth (calibration) or predicted
-            label (testing) of `single_test_ncm`.
-
-    Returns:
-        float: The p-value for `single_test_ncm` w.r.t. `train_ncms`.
-
-    """
-    # assert len(set(groundtruth_train)) == 2  # binary classification tasks only
-
-    opposite_classes = np.unique(groundtruth_train[groundtruth_train != single_y_test])
-
-    # 'Cast' NCMs to NCMs with respect to the opposite class (binary only)
-    # train_ncms_opposite_class = -1 * np.array(train_ncms)
-
-    per_class_pvalues = []
-    for op_class in opposite_classes:
-        train_ncms_op_class = train_ncms[groundtruth_train == op_class]
-        p_value_op_class = len(
-            train_ncms_op_class[train_ncms_op_class >= single_test_ncm]
-        ) / len(train_ncms_op_class)
-        per_class_pvalues.append(p_value_op_class)
-
-    return 1 - max(per_class_pvalues)  # confidence p value
 
 
 def get_rf_probs(clf, X_in):
