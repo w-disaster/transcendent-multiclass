@@ -38,16 +38,19 @@ def main():
         X.loc[malware_dataset.training_dataset["sha256"]],
         X.loc[malware_dataset.testing_dataset["sha256"]],
     )
+
     y_train, y_test = (
         malware_dataset.training_dataset["family"],
         malware_dataset.testing_dataset["family"],
     )
 
-    del X
-
-    # Convert family labels to integers (needed for RF NCM)
     all_labels = pd.concat([y_train, y_test]).unique()
     y_train = pd.Categorical(y_train, categories=all_labels).codes
+
+    del X
+    del X_test, y_test
+
+    # Convert family labels to integers (needed for RF NCM)
 
     logging.info("Loaded: {}".format(X_train.shape, y_train.shape))
 
@@ -82,45 +85,47 @@ def main():
     # 3. Generate 'Full' Model for Deployment  #
     # ---------------------------------------- #
 
-    logging.info("Beginning TEST phase.")
-
-    logging.info("Training model on full training set...")
-
-    model_name = "rf_ice_full_train_deploy.p"
-    # --> model_name = "rf_cal_fold_ice_{}.p".format(test_size)
-
-    model_name = os.path.join(saved_data_folder, model_name)
-
-    rf = RandomForestNCMClassifier()
-    rf.fit(X_train, y_train)
-    data.cache_data(rf, model_name)
-
-    # ------------------------------------------------------------------- #
-    # 4. Computing Credibility and Confidence for Concept drift detection #
-    # ------------------------------------------------------------------- #
-
-    logging.info("Computing p-values for test ...")
-    y_test_pred = rf.predict(X_test)
-
-    saved_data_name = "p_vals_ncms_rf_full_test.p"
-    saved_data_name = os.path.join(saved_data_folder, saved_data_name)
-
-    # if True:
-    #     if args.pval_consider == "full-train":
-
-    logging.info("Getting NCMs for train")
-    ncms_train = scores.get_rf_ncms(rf, X_train, y_train)
-
-    logging.info("Getting NCMs for test")
-    ncms_test = scores.get_rf_ncms(rf, X_test, y_test_pred)
-
-    p_val_test_dict = scores.compute_p_values_cred_and_conf(
-        train_ncms=ncms_train,
-        groundtruth_train=y_train,
-        test_ncms=ncms_test,
-        y_test=y_test_pred,
-    )
-    data.cache_data(p_val_test_dict, saved_data_name)
+    # logging.info("Beginning TEST phase.")
+    #
+    # logging.info("Training model on full training set...")
+    #
+    # model_name = "rf_ice_full_train_deploy.p"
+    # # --> model_name = "rf_cal_fold_ice_{}.p".format(test_size)
+    #
+    # model_name = os.path.join(saved_data_folder, model_name)
+    #
+    # rf = RandomForestNCMClassifier()
+    # rf.fit(X_train, y_train)
+    # data.cache_data(rf, model_name)
+    #
+    # # ------------------------------------------------------------------- #
+    # # 4. Computing Credibility and Confidence for Concept drift detection #
+    # # ------------------------------------------------------------------- #
+    #
+    # logging.info("Computing p-values for test ...")
+    # y_test_pred = rf.predict(X_test)
+    #
+    # saved_data_name = "p_vals_ncms_rf_full_test.p"
+    # saved_data_name = os.path.join(saved_data_folder, saved_data_name)
+    #
+    # # if True:
+    # #     if args.pval_consider == "full-train":
+    #
+    # logging.info("Getting NCMs for train")
+    # ncms_train = scores.get_rf_ncms(rf, X_train, y_train)
+    #
+    # logging.info("Getting NCMs for test")
+    # ncms_test = scores.get_rf_ncms(rf, X_test, y_test_pred)
+    #
+    # p_val_test_dict = scores.compute_p_values_cred_and_conf(
+    #     clf=rf,
+    #     train_ncms=ncms_train,
+    #     groundtruth_train=y_train,
+    #     test_ncms=ncms_test,
+    #     y_test=y_test_pred,
+    #     X_test=X_test,
+    # )
+    # data.cache_data(p_val_test_dict, saved_data_name)
 
 
 def package_cred_conf(cred_values, conf_values, criteria):
