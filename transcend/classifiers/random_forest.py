@@ -1,10 +1,31 @@
 import numpy as np
 from tqdm import tqdm
 from sklearn.ensemble import RandomForestClassifier
-
+from multiprocessing import Pool, shared_memory
 from transcend.classifiers.ncm_classifier import NCMClassifier
+from transcend.utils import alloc_shm, close_and_unlink_shm, load_existing_shm, close_shm
 
 eps = np.finfo(np.float64).eps
+
+
+def parall_prox(args):
+    (shm_tuple, (example_idx, end_idx)) = args
+    (t_leaves_shm_t, leaves_shm_t) = shm_tuple
+
+    t_leaves = load_existing_shm(*t_leaves_shm_t)
+    leaves = load_existing_shm(*leaves_shm_t)
+
+    try:
+        proximity = np.mean(
+            leaves[..., np.newaxis]
+            == t_leaves[:, example_idx:end_idx][np.newaxis, ...],
+            axis=1,
+        )
+    finally:
+        close_shm(t_leaves_shm_t[0])
+        close_shm(leaves_shm_t[0])
+        
+    return proximity
 
 
 class RandomForestNCMClassifier(NCMClassifier, RandomForestClassifier):
@@ -30,21 +51,42 @@ class RandomForestNCMClassifier(NCMClassifier, RandomForestClassifier):
         num_examples = len(self.X_train)
 
         t_leaves = np.transpose(self.train_leaves)
-        proximities = []
+        # proximities = []
 
         # Instead of computing the proximity in between all the examples at the same
         # time, we compute the similarity in blocks of "step_size" examples. This
         # makes the code more efficient with the the numpy broadcast.
+
+        ex_end_idxs = []
+
         while example_idx < num_examples:
             end_idx = min(example_idx + step_size, num_examples)
-            proximities.append(
-                np.mean(
-                    leaves[..., np.newaxis]
-                    == t_leaves[:, example_idx:end_idx][np.newaxis, ...],
-                    axis=1,
-                )
-            )
+            ex_end_idxs.append((example_idx, end_idx))
             example_idx = end_idx
+
+        t_leaves_shm_t = alloc_shm(t_leaves)
+        leaves_shm_t = alloc_shm(leaves)
+
+        shm_tuple = (t_leaves_shm_t, leaves_shm_t)
+        with Pool(32) as p:
+            try:
+                proximities = p.map(parall_prox, [(shm_tuple, ex_end_idx) for ex_end_idx in ex_end_idxs])
+            finally:
+                close_and_unlink_shm(t_leaves_shm_t[0])
+                close_and_unlink_shm(leaves_shm_t[0])
+
+        # train_ncms_shm.name, groundtruth_train.shape, train_ncms.dtype
+
+        # while example_idx < num_examples:
+        #         end_idx = min(example_idx + step_size, num_examples)
+        #         proximities.append(
+        #             np.mean(
+        #                 leaves[..., np.newaxis]
+        #                 == t_leaves[:, example_idx:end_idx][np.newaxis, ...],
+        #                 axis=1,
+        #             )
+        #         )
+        #         example_idx = end_idx
         return np.concatenate(proximities, axis=1)
 
     def fit(self, X_train, y_train):
