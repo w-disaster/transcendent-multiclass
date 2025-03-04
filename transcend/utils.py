@@ -12,9 +12,35 @@ import argparse
 import logging
 import multiprocessing as mp
 import sys
+from multiprocessing import shared_memory
 from pprint import pformat
 
+import numpy as np
 from termcolor import colored
+
+
+# Allocate shared memory for multiprocessing
+def alloc_shm(data):
+    data_shm = shared_memory.SharedMemory(create=True, size=data.nbytes)
+    data_arr = np.ndarray(data.shape, dtype=data.dtype, buffer=data_shm.buf)
+    np.copyto(data_arr, data)
+    return data_shm.name, data.shape, data.dtype
+
+
+def close_and_unlink_shm(shm_name):
+    existing_data_shm = shared_memory.SharedMemory(name=shm_name)
+    existing_data_shm.close()
+    existing_data_shm.unlink()
+
+
+def close_shm(shm_name):
+    existing_data_shm = shared_memory.SharedMemory(name=shm_name)
+    existing_data_shm.close()
+
+
+def load_existing_shm(shm_name, shm_shape, shm_dtype):
+    existing_shm = shared_memory.SharedMemory(name=shm_name)
+    return np.ndarray(shm_shape, dtype=shm_dtype, buffer=existing_shm.buf)
 
 
 def configure_logger():
@@ -83,8 +109,8 @@ def parse_args():
         default=-2,
         type=int,
         help="The number of processes to use. "
-        "Negative values are interpreted as (`mpu.cpu_count()` "
-        "- abs(args.ncpu))",
+             "Negative values are interpreted as (`mpu.cpu_count()` "
+             "- abs(args.ncpu))",
     )
     p.add_argument(
         "--pval-consider",
@@ -129,9 +155,9 @@ def parse_args():
     p.add_argument(
         "--rs-ceiling",  # default='0.25',
         help="The maximum total rejections that is acceptable. "
-        "Either a float (for `total_reject_perc` or comma "
-        "separated key:value pairs "
-        "(e.g., 'total_reject_perc:0.25,f1_r:0.8')",
+             "Either a float (for `total_reject_perc` or comma "
+             "separated key:value pairs "
+             "(e.g., 'total_reject_perc:0.25,f1_r:0.8')",
     )
     p.add_argument(
         "--rs-samples",
@@ -143,12 +169,12 @@ def parse_args():
     p.add_argument(
         "--cs-max",  # default='f1_k:0.99',
         help="The performance metric(s) to maximise. "
-        'Comma separated key:value pairs (e.g., "f1_k:0.99")',
+             'Comma separated key:value pairs (e.g., "f1_k:0.99")',
     )
     p.add_argument(
         "--cs-con",  # default='kept_total_perc:0.75',
         help="The performance metric(s) to constrain. "
-        'Comma separated key:value pairs (e.g., "kept_total_perc:0.75")',
+             'Comma separated key:value pairs (e.g., "kept_total_perc:0.75")',
     )
     args = p.parse_args()
 
