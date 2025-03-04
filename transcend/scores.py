@@ -3,6 +3,7 @@ from multiprocessing import Pool
 from functools import partial
 import time
 from p_tqdm import p_map
+from transcend.utils import alloc_shm, load_existing_shm, close_and_unlink_shm, close_shm
 
 """
 scores.py
@@ -82,17 +83,12 @@ def compute_p_values_cred_and_conf(clf, train_ncms, groundtruth_train, test_ncms
 
 
 def creds(args):
-    i, n, m, op_y_labels = args
+    (shm_t, (i, n, m, op_y_labels)) = args
+    (train_ncms_t, groundtruth_train_shm_t, ncms_shm_t) = shm_t
 
-    existing_shm_train_ncms = shared_memory.SharedMemory(name=train_ncms_shm_name)
-    train_ncms = np.ndarray(train_ncms_len, dtype=train_ncms_dtype, buffer=existing_shm_train_ncms.buf)
-
-    existing_shm_groundtruth_train = shared_memory.SharedMemory(name=groundtruth_train_shm_name)
-    groundtruth_train = np.ndarray(groundtruth_train_len, dtype=groundtruth_train_dtype,
-                                   buffer=existing_shm_groundtruth_train.buf)
-
-    existing_shm_ncms = shared_memory.SharedMemory(name=ncms_shm_name)
-    ncms_X_test_op_y_label = np.ndarray(ncms_shm_len, dtype=ncms_shm_dtype, buffer=existing_shm_ncms.buf)
+    train_ncms = load_existing_shm(*train_ncms_t)
+    groundtruth_train = load_existing_shm(*groundtruth_train_shm_t)
+    ncms_X_test_op_y_label = load_existing_shm(*ncms_shm_t)
 
     def partial_f(single_ncm_test, single_y_test):
         return compute_single_cred_p_value(train_ncms=train_ncms,
@@ -100,8 +96,13 @@ def creds(args):
                                            single_y_test=single_y_test,
                                            single_test_ncm=single_ncm_test)
 
-    return 1 - max([partial_f(single_ncm_test=ncm, single_y_test=op_y) for ncm, op_y in
-                    zip([ncms_X_test_op_y_label[i + k * m] for k in range(n)], op_y_labels)])
+    res = 1 - max([partial_f(single_ncm_test=ncm, single_y_test=op_y) for ncm, op_y in
+                   zip([ncms_X_test_op_y_label[i + k * m] for k in range(n)], op_y_labels)])
+
+    close_shm(train_ncms_t[0])
+    close_shm(groundtruth_train_shm_t[0])
+    close_shm(ncms_shm_t[0])
+    return res
 
 
 def compute_credibility_scores(train_ncms, groundtruth_train, test_ncms, y_test):
@@ -120,63 +121,45 @@ def compute_confidence_scores(clf, train_ncms, groundtruth_train, y_test, X_test
     unique_y_test_labels = np.unique(y_test)
     y_test_series = pd.Series(y_test, index=X_test.index)
 
-    # Allocate shared memory for multiprocessing
-
-    train_ncms_shm = shared_memory.SharedMemory(create=True, size=train_ncms.nbytes)
-    train_ncms_shm_arr = np.ndarray(train_ncms.shape, dtype=train_ncms.dtype, buffer=train_ncms_shm.buf)
-    np.copyto(train_ncms_shm_arr, train_ncms)
-    global train_ncms_shm_name, train_ncms_len, train_ncms_dtype
-    train_ncms_shm_name, train_ncms_len, train_ncms_dtype = train_ncms_shm.name, groundtruth_train.shape, train_ncms.dtype
-
-    groundtruth_train_shm = shared_memory.SharedMemory(create=True, size=groundtruth_train.nbytes)
-    groundtruth_train_shm_arr = np.ndarray(groundtruth_train.shape, dtype=groundtruth_train.dtype,
-                                           buffer=groundtruth_train_shm.buf)
-    np.copyto(groundtruth_train_shm_arr, groundtruth_train)
-    global groundtruth_train_shm_name, groundtruth_train_len, groundtruth_train_dtype
-    groundtruth_train_shm_name, groundtruth_train_len, groundtruth_train_dtype = (
-        groundtruth_train_shm.name, groundtruth_train.shape,
-        groundtruth_train.dtype)
+    train_ncms_shm_t = alloc_shm(train_ncms)
+    groundtruth_train_shm_t = alloc_shm(groundtruth_train)
 
     conf_X_test = []
-    for y in tqdm(unique_y_test_labels, total=len(unique_y_test_labels), desc="label conf"):
-        op_y_labels = unique_y_test_labels[unique_y_test_labels != y]
-        X_test_y = X_test[y_test_series == y]
+    try:
+        for y in tqdm(unique_y_test_labels, total=len(unique_y_test_labels), desc="label conf"):
+            op_y_labels = unique_y_test_labels[unique_y_test_labels != y]
+            X_test_y = X_test[y_test_series == y]
 
-        m = X_test_y.shape[0]
-        n = len(op_y_labels)
+            m = X_test_y.shape[0]
+            n = len(op_y_labels)
 
-        M = pd.concat([X_test_y] * n, ignore_index=True)
-        Y = np.concat([np.full(m, op_y_label) for op_y_label in op_y_labels])
+            M = pd.concat([X_test_y] * n, ignore_index=True)
+            Y = np.concat([np.full(m, op_y_label) for op_y_label in op_y_labels])
 
-        t_start = time.time()
-        ncms_X_test_op_y_label = clf.ncm(M, Y)
-        logging.info(f"TIME RF: {time.time() - t_start}")
+            t_start = time.time()
+            ncms_X_test_op_y_label = clf.ncm(M, Y)
+            logging.info(f"TIME RF: {time.time() - t_start}")
 
-        ncms_shm = shared_memory.SharedMemory(create=True, size=ncms_X_test_op_y_label.nbytes)
-        ncms_shm_arr = np.ndarray(ncms_X_test_op_y_label.shape, dtype=ncms_X_test_op_y_label.dtype,
-                                  buffer=ncms_shm.buf)
-        np.copyto(ncms_shm_arr, ncms_X_test_op_y_label)
-        global ncms_shm_name, ncms_shm_len, ncms_shm_dtype
-        ncms_shm_name, ncms_shm_len, ncms_shm_dtype = (ncms_shm.name, ncms_X_test_op_y_label.shape,
-                                                       ncms_X_test_op_y_label.dtype)
+            ncm_shm_t = alloc_shm(ncms_X_test_op_y_label)
 
-        t_start = time.time()
-        with Pool(32) as p:
-            conf_X_test_y = p.map(creds, [(i, n, m, op_y_labels) for i in range(m)])
+            shm_t = (train_ncms_shm_t, groundtruth_train_shm_t, ncm_shm_t)
+            t_start = time.time()
+            with Pool(32) as p:
+                try:
+                    conf_X_test_y = p.map(creds, [(shm_t, (i, n, m, op_y_labels)) for i in range(m)])
+                finally:
+                    close_and_unlink_shm(ncm_shm_t[0])
 
-        logging.info(f"TIME POOL: {time.time() - t_start}")
-        ncms_shm.close()
-        ncms_shm.unlink()
+            logging.info(f"TIME POOL: {time.time() - t_start}")
 
-        conf_X_test_y = pd.DataFrame(conf_X_test_y, index=X_test_y.index)
-        conf_X_test.append(conf_X_test_y)
+            conf_X_test_y = pd.DataFrame(conf_X_test_y, index=X_test_y.index)
+            conf_X_test.append(conf_X_test_y)
+    finally:
+        close_and_unlink_shm(train_ncms_shm_t[0])
+        close_and_unlink_shm(groundtruth_train_shm_t[0])
 
-    train_ncms_shm.close()
-    train_ncms_shm.unlink()
-    groundtruth_train_shm.close()
-    groundtruth_train_shm.unlink()
-    _, conf_X_test = X_test.align(pd.concat(conf_X_test, axis=0), axis=0)
-    return conf_X_test
+        _, conf_X_test = X_test.align(pd.concat(conf_X_test, axis=0), axis=0)
+        return conf_X_test
 
 
 def compute_single_cred_p_value(
