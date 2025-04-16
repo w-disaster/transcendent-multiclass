@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
-from multiprocessing import Pool
-from functools import partial
 import time
-from p_tqdm import p_map
-from transcend.utils import alloc_shm, load_existing_shm, close_and_unlink_shm, close_shm
+
+from transcend.utils import alloc_shm, load_existing_shm
 
 """
 scores.py
@@ -25,7 +23,7 @@ import logging
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-from multiprocessing import Pool, shared_memory
+from multiprocessing import Pool
 
 
 def get_rf_ncms(clf, X_in, y_in):
@@ -86,9 +84,9 @@ def creds(args):
     (shm_t, (i, n, m, op_y_labels)) = args
     (train_ncms_t, groundtruth_train_shm_t, ncms_shm_t) = shm_t
 
-    train_ncms = load_existing_shm(*train_ncms_t)
-    groundtruth_train = load_existing_shm(*groundtruth_train_shm_t)
-    ncms_X_test_op_y_label = load_existing_shm(*ncms_shm_t)
+    train_ncms_shm, train_ncms = load_existing_shm(*train_ncms_t)
+    groundtruth_train_shm, groundtruth_train = load_existing_shm(*groundtruth_train_shm_t)
+    ncms_X_test_op_y_label_shm, ncms_X_test_op_y_label = load_existing_shm(*ncms_shm_t)
 
     def partial_f(single_ncm_test, single_y_test):
         return compute_single_cred_p_value(train_ncms=train_ncms,
@@ -99,9 +97,9 @@ def creds(args):
     res = 1 - max([partial_f(single_ncm_test=ncm, single_y_test=op_y) for ncm, op_y in
                    zip([ncms_X_test_op_y_label[i + k * m] for k in range(n)], op_y_labels)])
 
-    close_shm(train_ncms_t[0])
-    close_shm(groundtruth_train_shm_t[0])
-    close_shm(ncms_shm_t[0])
+    train_ncms_shm.close()
+    groundtruth_train_shm.close()
+    ncms_X_test_op_y_label_shm.close()
     return res
 
 
@@ -121,45 +119,42 @@ def compute_confidence_scores(clf, train_ncms, groundtruth_train, y_test, X_test
     unique_y_test_labels = np.unique(y_test)
     y_test_series = pd.Series(y_test, index=X_test.index)
 
-    train_ncms_shm_t = alloc_shm(train_ncms)
-    groundtruth_train_shm_t = alloc_shm(groundtruth_train)
+    train_ncms_shm, train_ncms_shm_t = alloc_shm(train_ncms)
+    groundtruth_train_shm, groundtruth_train_shm_t = alloc_shm(groundtruth_train)
 
     conf_X_test = []
-    try:
-        for y in tqdm(unique_y_test_labels, total=len(unique_y_test_labels), desc="label conf"):
-            op_y_labels = unique_y_test_labels[unique_y_test_labels != y]
-            X_test_y = X_test[y_test_series == y]
+    for y in tqdm(unique_y_test_labels, total=len(unique_y_test_labels), desc="label conf"):
+        op_y_labels = unique_y_test_labels[unique_y_test_labels != y]
+        X_test_y = X_test[y_test_series == y]
 
-            m = X_test_y.shape[0]
-            n = len(op_y_labels)
+        m = X_test_y.shape[0]
+        n = len(op_y_labels)
 
-            M = pd.concat([X_test_y] * n, ignore_index=True)
-            Y = np.concat([np.full(m, op_y_label) for op_y_label in op_y_labels])
+        M = pd.concat([X_test_y] * n, ignore_index=True)
+        Y = np.concat([np.full(m, op_y_label) for op_y_label in op_y_labels])
 
-            t_start = time.time()
-            ncms_X_test_op_y_label = clf.ncm(M, Y)
-            logging.info(f"TIME RF: {time.time() - t_start}")
+        t_start = time.time()
+        ncms_X_test_op_y_label = clf.ncm(M, Y)
+        ncm_shm, ncm_shm_t = alloc_shm(ncms_X_test_op_y_label)
 
-            ncm_shm_t = alloc_shm(ncms_X_test_op_y_label)
+        shm_t = (train_ncms_shm_t, groundtruth_train_shm_t, ncm_shm_t)
+        t_start = time.time()
+        with Pool(32) as p:
+            conf_X_test_y = p.map(creds, [(shm_t, (i, n, m, op_y_labels)) for i in range(m)])
 
-            shm_t = (train_ncms_shm_t, groundtruth_train_shm_t, ncm_shm_t)
-            t_start = time.time()
-            with Pool(32) as p:
-                try:
-                    conf_X_test_y = p.map(creds, [(shm_t, (i, n, m, op_y_labels)) for i in range(m)])
-                finally:
-                    close_and_unlink_shm(ncm_shm_t[0])
+        ncm_shm.close()
+        ncm_shm.unlink()
 
-            logging.info(f"TIME POOL: {time.time() - t_start}")
+        conf_X_test_y = pd.DataFrame(conf_X_test_y, index=X_test_y.index)
+        conf_X_test.append(conf_X_test_y)
 
-            conf_X_test_y = pd.DataFrame(conf_X_test_y, index=X_test_y.index)
-            conf_X_test.append(conf_X_test_y)
-    finally:
-        close_and_unlink_shm(train_ncms_shm_t[0])
-        close_and_unlink_shm(groundtruth_train_shm_t[0])
+    train_ncms_shm.close()
+    train_ncms_shm.unlink()
+    groundtruth_train_shm.close()
+    groundtruth_train_shm.unlink()
 
-        _, conf_X_test = X_test.align(pd.concat(conf_X_test, axis=0), axis=0)
-        return conf_X_test
+    _, conf_X_test = X_test.align(pd.concat(conf_X_test, axis=0), axis=0)
+    return conf_X_test
 
 
 def compute_single_cred_p_value(
