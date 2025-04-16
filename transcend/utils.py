@@ -24,7 +24,7 @@ def alloc_shm(data):
     data_shm = shared_memory.SharedMemory(create=True, size=data.nbytes)
     data_arr = np.ndarray(data.shape, dtype=data.dtype, buffer=data_shm.buf)
     np.copyto(data_arr, data)
-    return data_shm.name, data.shape, data.dtype
+    return data_shm, (data_shm.name, data.shape, data.dtype)
 
 
 def close_and_unlink_shm(shm_name):
@@ -40,7 +40,7 @@ def close_shm(shm_name):
 
 def load_existing_shm(shm_name, shm_shape, shm_dtype):
     existing_shm = shared_memory.SharedMemory(name=shm_name)
-    return np.ndarray(shm_shape, dtype=shm_dtype, buffer=existing_shm.buf)
+    return existing_shm, np.ndarray(shm_shape, dtype=shm_dtype, buffer=existing_shm.buf)
 
 
 def configure_logger():
