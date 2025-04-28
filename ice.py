@@ -48,7 +48,6 @@ def main():
     y_train = pd.Categorical(y_train, categories=all_labels).codes
 
     del X
-    del X_test, y_test
 
     # Convert family labels to integers (needed for RF NCM)
 
@@ -63,69 +62,73 @@ def main():
     # 1. Calibration                           #
     # ---------------------------------------- #
 
-    logging.info("Training calibration set...")
-
-    X_proper_train, X_cal, y_proper_train, y_cal = train_test_split(
-        X_train, y_train, test_size=test_size, random_state=3
-    )
-
-    cal_results_dict = calibration.train_calibration_ice(
-        X_proper_train=X_proper_train,
-        X_cal=X_cal,
-        y_proper_train=y_proper_train,
-        y_cal=y_cal,
-        fold_index="ice_{}".format(test_size),
-        saved_data_folder=saved_data_folder,
-    )
-
-    cal_results_name = os.path.join(saved_data_folder, "cal_results.p")
-    data.cache_data(cal_results_dict, cal_results_name)
+    # logging.info("Training calibration set...")
+    #
+    # X_proper_train, X_cal, y_proper_train, y_cal = train_test_split(
+    #     X_train, y_train, test_size=test_size, random_state=3
+    # )
+    #
+    # cal_results_dict = calibration.train_calibration_ice(
+    #     X_proper_train=X_proper_train,
+    #     X_cal=X_cal,
+    #     y_proper_train=y_proper_train,
+    #     y_cal=y_cal,
+    #     fold_index="ice_{}".format(test_size),
+    #     saved_data_folder=saved_data_folder,
+    # )
+    #
+    # cal_results_name = os.path.join(saved_data_folder, "cal_results.p")
+    # data.cache_data(cal_results_dict, cal_results_name)
 
     # ---------------------------------------- #
     # 3. Generate 'Full' Model for Deployment  #
     # ---------------------------------------- #
 
-    # logging.info("Beginning TEST phase.")
-    #
-    # logging.info("Training model on full training set...")
-    #
-    # model_name = "rf_ice_full_train_deploy.p"
-    # # --> model_name = "rf_cal_fold_ice_{}.p".format(test_size)
-    #
-    # model_name = os.path.join(saved_data_folder, model_name)
-    #
-    # rf = RandomForestNCMClassifier()
-    # rf.fit(X_train, y_train)
-    # data.cache_data(rf, model_name)
-    #
-    # # ------------------------------------------------------------------- #
-    # # 4. Computing Credibility and Confidence for Concept drift detection #
-    # # ------------------------------------------------------------------- #
-    #
-    # logging.info("Computing p-values for test ...")
-    # y_test_pred = rf.predict(X_test)
-    #
-    # saved_data_name = "p_vals_ncms_rf_full_test.p"
-    # saved_data_name = os.path.join(saved_data_folder, saved_data_name)
-    #
-    # # if True:
-    # #     if args.pval_consider == "full-train":
-    #
-    # logging.info("Getting NCMs for train")
-    # ncms_train = scores.get_rf_ncms(rf, X_train, y_train)
-    #
-    # logging.info("Getting NCMs for test")
-    # ncms_test = scores.get_rf_ncms(rf, X_test, y_test_pred)
-    #
-    # p_val_test_dict = scores.compute_p_values_cred_and_conf(
-    #     clf=rf,
-    #     train_ncms=ncms_train,
-    #     groundtruth_train=y_train,
-    #     test_ncms=ncms_test,
-    #     y_test=y_test_pred,
-    #     X_test=X_test,
-    # )
-    # data.cache_data(p_val_test_dict, saved_data_name)
+    logging.info("Beginning TEST phase.")
+
+    logging.info("Training model on full training set...")
+
+    model_name = "rf_ice_full_train_deploy.p"
+    # --> model_name = "rf_cal_fold_ice_{}.p".format(test_size)
+
+    model_name = os.path.join(saved_data_folder, model_name)
+
+    if os.path.exists(model_name):
+        rf = data.load_cached_data(model_name)
+    else:
+        rf = RandomForestNCMClassifier()
+        rf.fit(X_train, y_train)
+        data.cache_data(rf, model_name)
+
+    # ------------------------------------------------------------------- #
+    # 4. Computing Credibility and Confidence for Concept drift detection #
+    # ------------------------------------------------------------------- #
+
+    logging.info("Computing p-values for test ...")
+    y_test_pred = rf.predict(X_test)
+
+    filename_test_pvalues = "p_vals_ncms_rf_full_test.p"
+    filename_test_pvalues = os.path.join(saved_data_folder, filename_test_pvalues)
+
+    logging.info("Getting NCMs for train")
+    ncms_train = scores.get_rf_ncms(rf, X_train, y_train)
+
+    logging.info("Getting NCMs for test")
+    ncms_test = scores.get_rf_ncms(rf, X_test, y_test_pred)
+
+    # filename_test_ncms = "ncms_rf_full_test.p"
+    # filename_test_ncms = os.path.join(saved_data_folder, filename_test_ncms)
+    # data.cache_data(ncms_test, filename_test_ncms)
+
+    p_val_test_dict = scores.compute_p_values_cred_and_conf(
+        clf=rf,
+        train_ncms=ncms_train,
+        groundtruth_train=y_train,
+        test_ncms=ncms_test,
+        y_test=y_test_pred,
+        X_test=X_test,
+    )
+    data.cache_data(p_val_test_dict, filename_test_pvalues)
 
 
 def package_cred_conf(cred_values, conf_values, criteria):
