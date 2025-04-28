@@ -109,8 +109,8 @@ def parse_args():
         default=-2,
         type=int,
         help="The number of processes to use. "
-             "Negative values are interpreted as (`mpu.cpu_count()` "
-             "- abs(args.ncpu))",
+        "Negative values are interpreted as (`mpu.cpu_count()` "
+        "- abs(args.ncpu))",
     )
     p.add_argument(
         "--pval-consider",
@@ -155,9 +155,9 @@ def parse_args():
     p.add_argument(
         "--rs-ceiling",  # default='0.25',
         help="The maximum total rejections that is acceptable. "
-             "Either a float (for `total_reject_perc` or comma "
-             "separated key:value pairs "
-             "(e.g., 'total_reject_perc:0.25,f1_r:0.8')",
+        "Either a float (for `total_reject_perc` or comma "
+        "separated key:value pairs "
+        "(e.g., 'total_reject_perc:0.25,f1_r:0.8')",
     )
     p.add_argument(
         "--rs-samples",
@@ -169,12 +169,12 @@ def parse_args():
     p.add_argument(
         "--cs-max",  # default='f1_k:0.99',
         help="The performance metric(s) to maximise. "
-             'Comma separated key:value pairs (e.g., "f1_k:0.99")',
+        'Comma separated key:value pairs (e.g., "f1_k:0.99")',
     )
     p.add_argument(
         "--cs-con",  # default='kept_total_perc:0.75',
         help="The performance metric(s) to constrain. "
-             'Comma separated key:value pairs (e.g., "kept_total_perc:0.75")',
+        'Comma separated key:value pairs (e.g., "kept_total_perc:0.75")',
     )
     args = p.parse_args()
 

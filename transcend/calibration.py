@@ -23,7 +23,7 @@ import transcend.scores as scores
 
 
 def train_calibration_set(
-        X_train, y_train, n_folds=10, ncpu=1, saved_data_folder=".", loo=False
+    X_train, y_train, n_folds=10, ncpu=1, saved_data_folder=".", loo=False
 ):
     """Train the calibration set in order to find thresholds.
 
@@ -73,7 +73,7 @@ def train_calibration_set(
         n_splits = skf.get_n_splits(X_train, y_train)
 
         for res in tqdm(
-                pool.imap(train_calibration_fold, fold_generator), total=n_splits
+            pool.imap(train_calibration_fold, fold_generator), total=n_splits
         ):
             results_list.append(res)
 
@@ -109,7 +109,7 @@ def concatenate_calibration_set_results(results_list):
 
 
 def train_calibration_ice(
-        X_proper_train, X_cal, y_proper_train, y_cal, fold_index, saved_data_folder="."
+    X_proper_train, X_cal, y_proper_train, y_cal, fold_index, saved_data_folder="."
 ):
     """Train calibration set (for a single fold).
 
@@ -194,7 +194,7 @@ def train_calibration_ice(
         groundtruth_train=groundtruth_proper_train_fold,
         test_ncms=ncms_cal_fold,
         y_test=groundtruth_cal_fold,
-        X_test=X_cal
+        X_test=X_cal,
     )
     data.cache_data(p_val_cal_fold_dict, saved_pvals_name)
 

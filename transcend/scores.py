@@ -73,10 +73,16 @@ def get_single_svm_ncm(clf, single_x, single_y):
     raise Exception("Unknown class? Only binary decisions supported.")
 
 
-def compute_p_values_cred_and_conf(clf, train_ncms, groundtruth_train, test_ncms, y_test, X_test):
+def compute_p_values_cred_and_conf(
+    clf, train_ncms, groundtruth_train, test_ncms, y_test, X_test
+):
     return {
-        "conf": compute_confidence_scores(clf, train_ncms, groundtruth_train, y_test, X_test),
-        "cred": compute_credibility_scores(train_ncms, groundtruth_train, test_ncms, y_test)
+        "conf": compute_confidence_scores(
+            clf, train_ncms, groundtruth_train, y_test, X_test
+        ),
+        "cred": compute_credibility_scores(
+            train_ncms, groundtruth_train, test_ncms, y_test
+        ),
     }
 
 
@@ -85,17 +91,27 @@ def creds(args):
     (train_ncms_t, groundtruth_train_shm_t, ncms_shm_t) = shm_t
 
     train_ncms_shm, train_ncms = load_existing_shm(*train_ncms_t)
-    groundtruth_train_shm, groundtruth_train = load_existing_shm(*groundtruth_train_shm_t)
+    groundtruth_train_shm, groundtruth_train = load_existing_shm(
+        *groundtruth_train_shm_t
+    )
     ncms_X_test_op_y_label_shm, ncms_X_test_op_y_label = load_existing_shm(*ncms_shm_t)
 
     def partial_f(single_ncm_test, single_y_test):
-        return compute_single_cred_p_value(train_ncms=train_ncms,
-                                           groundtruth_train=groundtruth_train,
-                                           single_y_test=single_y_test,
-                                           single_test_ncm=single_ncm_test)
+        return compute_single_cred_p_value(
+            train_ncms=train_ncms,
+            groundtruth_train=groundtruth_train,
+            single_y_test=single_y_test,
+            single_test_ncm=single_ncm_test,
+        )
 
-    res = 1 - max([partial_f(single_ncm_test=ncm, single_y_test=op_y) for ncm, op_y in
-                   zip([ncms_X_test_op_y_label[i + k * m] for k in range(n)], op_y_labels)])
+    res = 1 - max(
+        [
+            partial_f(single_ncm_test=ncm, single_y_test=op_y)
+            for ncm, op_y in zip(
+                [ncms_X_test_op_y_label[i + k * m] for k in range(n)], op_y_labels
+            )
+        ]
+    )
 
     train_ncms_shm.close()
     groundtruth_train_shm.close()
@@ -123,7 +139,9 @@ def compute_confidence_scores(clf, train_ncms, groundtruth_train, y_test, X_test
     groundtruth_train_shm, groundtruth_train_shm_t = alloc_shm(groundtruth_train)
 
     conf_X_test = []
-    for y in tqdm(unique_y_test_labels, total=len(unique_y_test_labels), desc="label conf"):
+    for y in tqdm(
+        unique_y_test_labels, total=len(unique_y_test_labels), desc="label conf"
+    ):
         op_y_labels = unique_y_test_labels[unique_y_test_labels != y]
         X_test_y = X_test[y_test_series == y]
 
@@ -140,7 +158,9 @@ def compute_confidence_scores(clf, train_ncms, groundtruth_train, y_test, X_test
         shm_t = (train_ncms_shm_t, groundtruth_train_shm_t, ncm_shm_t)
         t_start = time.time()
         with Pool(32) as p:
-            conf_X_test_y = p.map(creds, [(shm_t, (i, n, m, op_y_labels)) for i in range(m)])
+            conf_X_test_y = p.map(
+                creds, [(shm_t, (i, n, m, op_y_labels)) for i in range(m)]
+            )
 
         ncm_shm.close()
         ncm_shm.unlink()
@@ -158,7 +178,7 @@ def compute_confidence_scores(clf, train_ncms, groundtruth_train, y_test, X_test
 
 
 def compute_single_cred_p_value(
-        train_ncms, groundtruth_train, single_test_ncm, single_y_test
+    train_ncms, groundtruth_train, single_test_ncm, single_y_test
 ):
     """Compute a single credibility p-value.
 

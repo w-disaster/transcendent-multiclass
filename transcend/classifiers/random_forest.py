@@ -21,8 +21,7 @@ def parall_prox(args):
     leaves_shm, leaves = load_existing_shm(*leaves_shm_t)
 
     proximity = np.mean(
-        leaves[..., np.newaxis]
-        == t_leaves[:, example_idx:end_idx][np.newaxis, ...],
+        leaves[..., np.newaxis] == t_leaves[:, example_idx:end_idx][np.newaxis, ...],
         axis=1,
     )
 
@@ -51,8 +50,7 @@ def compute_proximity(X_train_len, train_leaves, leaves, step_size=100):
     # time, we compute the similarity in blocks of "step_size" examples. This
     # makes the code more efficient with the the numpy broadcast.
     ex_end_idxs = [
-        (i, min(i + step_size, num_examples))
-        for i in range(0, num_examples, step_size)
+        (i, min(i + step_size, num_examples)) for i in range(0, num_examples, step_size)
     ]
 
     t_leaves_shm, t_leaves_shm_t = alloc_shm(t_leaves)
@@ -86,7 +84,9 @@ class RandomForestNCMClassifier(NCMClassifier, RandomForestClassifier):
         self.X_train = X_train
         self.y_train = y_train
         self.train_leaves = self.apply(X_train)
-        self.proximity = compute_proximity(len(X_train), self.train_leaves, self.train_leaves)
+        self.proximity = compute_proximity(
+            len(X_train), self.train_leaves, self.train_leaves
+        )
 
     def ncm(self, X, y):
         if np.array_equal(X, self.X_train):
