@@ -15,11 +15,11 @@ from itertools import repeat
 
 import numpy as np
 from sklearn.model_selection import LeaveOneOut, StratifiedKFold
-from transcend.classifiers.random_forest import RandomForestNCMClassifier
+from transcendent.classifiers.random_forest import RandomForestNCMClassifier
 from tqdm import tqdm
 
-import transcend.data as data
-import transcend.scores as scores
+import transcendent.data as data
+import transcendent.scores as scores
 
 
 def train_calibration_set(

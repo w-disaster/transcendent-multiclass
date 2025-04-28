@@ -21,7 +21,7 @@ import multiprocessing as mp
 import os
 
 import inspect
-import transcend.data as data
+import transcendent.data as data
 
 
 def test_with_rejection(

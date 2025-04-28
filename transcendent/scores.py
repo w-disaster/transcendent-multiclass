@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import time
 
-from transcend.utils import alloc_shm, load_existing_shm
+from transcendent.utils import alloc_shm, load_existing_shm
 
 """
 scores.py

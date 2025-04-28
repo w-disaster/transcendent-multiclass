@@ -3,9 +3,9 @@ from multiprocessing import Pool
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 from tqdm import tqdm
-from transcend.classifiers.ncm_classifier import NCMClassifier
+from .ncm_classifier import NCMClassifier
 
-from transcend.utils import (
+from transcendent.utils import (
     alloc_shm,
     load_existing_shm,
 )
