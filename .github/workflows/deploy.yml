@@ -28,9 +28,6 @@ jobs:
       - name: Restore Development Environment
         run: poetry install
 
-      - name: Change default logging level
-        run: sed -i -e 's/DEBUG/WARNING/g' ember/__init__.py
-
       - name: Get Node Version
         id: get-node-version
         run: echo version=$(jq -r .engines.node package.json) >> $GITHUB_OUTPUT
