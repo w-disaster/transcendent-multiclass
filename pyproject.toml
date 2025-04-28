@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "transcendent__Wdis"
+name = "transcendent-multiclass__Wdis"
 packages = [
     { include = "transcendent" },
 ]
