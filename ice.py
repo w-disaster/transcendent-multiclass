@@ -2,14 +2,13 @@ import logging
 import os
 
 import pandas as pd
-from dataset.malware_dataset import MalwareDataset
 from sklearn.model_selection import train_test_split
-from transcend.classifiers.random_forest import RandomForestNCMClassifier
+from transcendent.classifiers.random_forest import RandomForestNCMClassifier
 
-import transcend.calibration as calibration
-import transcend.data as data
-import transcend.scores as scores
-import transcend.utils as utils
+import transcendent.calibration as calibration
+import transcendent.data as data
+import transcendent.scores as scores
+import transcendent.utils as utils
 
 
 def main():
@@ -21,36 +20,53 @@ def main():
     utils.configure_logger()
 
     logging.info("This is ICE - only compute test pvals with cal ncms")
-    base_path = "/home/luca/ml-malware-concept-drift/src/notebooks/"
+    # base_path = "/home/luca/ml-malware-concept-drift/src/notebooks/"
 
-    # Load Full Dataset with Malware Static Features
-    malware_dataset = MalwareDataset(
-        split=pd.Timestamp("2021-09-03 13:47:49"),
-        truncated_fam_path="truncated_samples_per_family.csv",
-        truncated_threshold=7,
+    # # Load Full Dataset with Malware Static Features
+    # malware_dataset = MalwareDataset(
+    #     split=pd.Timestamp("2021-09-03 13:47:49"),
+    #     truncated_fam_path="truncated_samples_per_family.csv",
+    #     truncated_threshold=7,
+    # )
+
+    # logging.info("Loading malw-static-features training features...")
+    # full_dataset_path = base_path + "clustering/1_preprocessing/X_nontrunc_norm.pickle"
+    # X = data.load_cached_data(full_dataset_path)
+
+    # X_train, X_test = (
+    #     X.loc[malware_dataset.training_dataset["sha256"]],
+    #     X.loc[malware_dataset.testing_dataset["sha256"]],
+    # )
+
+    # y_train, y_test = (
+    #     malware_dataset.training_dataset["family"],
+    #     malware_dataset.testing_dataset["family"],
+    # )
+
+    # Load Full Dataset with Malware features and Malware families
+    base_dataset_path = os.getenv("BASE_DATASET_PATH")
+    pe_dataset_type = os.getenv(
+        "PE_DATASET_TYPE"
+    )  # e.g. "motif", "ember", "decoding_the_secrets"
+    train_test_split_type = os.getenv(
+        "TRAIN_TEST_SPLIT_TYPE"
+    )  # e.g. "random", "time_based"
+
+    load_data_frame = lambda filename: pd.read_csv(
+        os.path.join(
+            base_dataset_path, pe_dataset_type, train_test_split_type, filename
+        ),
+        index_col=0,
+        header=0,
     )
 
-    logging.info("Loading malw-static-features training features...")
-    full_dataset_path = base_path + "clustering/1_preprocessing/X_nontrunc_norm.pickle"
-    X = data.load_cached_data(full_dataset_path)
-
-    X_train, X_test = (
-        X.loc[malware_dataset.training_dataset["sha256"]],
-        X.loc[malware_dataset.testing_dataset["sha256"]],
-    )
-
-    y_train, y_test = (
-        malware_dataset.training_dataset["family"],
-        malware_dataset.testing_dataset["family"],
-    )
+    X_train, y_train = load_data_frame("X_train.csv"), load_data_frame("y_train.csv")
+    X_test, y_test = load_data_frame("X_test.csv"), load_data_frame("y_test.csv")
 
     all_labels = pd.concat([y_train, y_test]).unique()
     y_train = pd.Categorical(y_train, categories=all_labels).codes
 
-    del X
-
     # Convert family labels to integers (needed for RF NCM)
-
     logging.info("Loaded: {}".format(X_train.shape, y_train.shape))
 
     test_size = 0.34
@@ -62,23 +78,23 @@ def main():
     # 1. Calibration                           #
     # ---------------------------------------- #
 
-    # logging.info("Training calibration set...")
-    #
-    # X_proper_train, X_cal, y_proper_train, y_cal = train_test_split(
-    #     X_train, y_train, test_size=test_size, random_state=3
-    # )
-    #
-    # cal_results_dict = calibration.train_calibration_ice(
-    #     X_proper_train=X_proper_train,
-    #     X_cal=X_cal,
-    #     y_proper_train=y_proper_train,
-    #     y_cal=y_cal,
-    #     fold_index="ice_{}".format(test_size),
-    #     saved_data_folder=saved_data_folder,
-    # )
-    #
-    # cal_results_name = os.path.join(saved_data_folder, "cal_results.p")
-    # data.cache_data(cal_results_dict, cal_results_name)
+    logging.info("Training calibration set...")
+
+    X_proper_train, X_cal, y_proper_train, y_cal = train_test_split(
+        X_train, y_train, test_size=test_size, random_state=3
+    )
+
+    cal_results_dict = calibration.train_calibration_ice(
+        X_proper_train=X_proper_train,
+        X_cal=X_cal,
+        y_proper_train=y_proper_train,
+        y_cal=y_cal,
+        fold_index="ice_{}".format(test_size),
+        saved_data_folder=saved_data_folder,
+    )
+
+    cal_results_name = os.path.join(saved_data_folder, "cal_results.p")
+    data.cache_data(cal_results_dict, cal_results_name)
 
     # ---------------------------------------- #
     # 3. Generate 'Full' Model for Deployment  #
