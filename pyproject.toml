@@ -3,7 +3,7 @@ name = "transcendent__Wdis"
 packages = [
     { include = "transcendent" },
 ]
-version = "1.0.1"
+version = "1.0.0"
 description = "Transcendent adaptation for multiclass problems"
 authors = ["Luca Fabri <luca.fabri1999@gmail.com>"]
 license = "BSD 3-Clause License"
