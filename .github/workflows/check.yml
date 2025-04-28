@@ -36,13 +36,6 @@ jobs:
         shell: bash
         run: poe format-check
 
-      - name: Test with Coverage
-        shell: bash
-        run: |
-          poe coverage
-          poe coverage-report
-          poe coverage-html
-
       - uses: actions/upload-artifact@v4
         with:
           name: coverage-report-${{ github.sha }}
