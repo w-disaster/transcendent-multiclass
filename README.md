@@ -3,11 +3,11 @@
 ![CI status](https://github.com/w-disaster/transcendent-multiclass/actions/workflows/check.yml/badge.svg) 
 ![Version](https://img.shields.io/github/v/release/w-disaster/transcendent-multiclass?style=plastic)
 
-This repository allows the user to apply Transcendent-like Concept drift detection for both binary and multiclass problems.
+This repository enables users to apply Transcendent-like concept drift detection to both binary and multiclass problems.
 
-Modifications have been made to the ICE implementation specifically, leaving the other solutions out of the scope (e.g. TCE, CCE etc.). Furthermore, the thresholding phase is temporarily disabled due to time-contraints, so the threshold should be derived manually once the calibration phase completes.
+Modifications have been made specifically to the ICE (Inductive Conformal Evaluator) implementation, while other solutions (i.e. TCE, CCE, etc.) are out of scope. Furthermore, the thresholding phase is temporarily disabled due to time constraints, so the threshold must be derived manually after the calibration phase completes.
 
-This project extends [Transcendent](https://github.com/s2labres/transcendent-release/tree/main) by implementing a Non-Conformity Measure (NCM) based on Random Forest proximities, introduced from the paper ["Prediction with Confidence Based on a Random Forest Classifier"](https://s2lab.cs.ucl.ac.uk/projects/transcend/).
+This project extends  [Transcendent](https://github.com/s2labres/transcendent-release/tree/main) by implementing a Non-Conformity Measure (NCM) based on Random Forest proximities, as introduced in the paper ["Prediction with Confidence Based on a Random Forest Classifier"](https://s2lab.cs.ucl.ac.uk/projects/transcend/).
 
 
 ## Prerequisites
@@ -21,12 +21,12 @@ This project extends [Transcendent](https://github.com/s2labres/transcendent-rel
     git clone git@github.com:w-disaster/transcendent-multiclass.git && cd transcendent-multiclass
     ```
 
-2. Setup `docker-compose.yaml` and the directory containing the Training and Testing set:
+2. Set up `docker-compose.yaml` and the directory containing the training and testing sets:
 
-    `ice.py` looks for the training and testing dataset, which should be mounted inside the Docker container.
+    `ice.py` looks for the training and testing datasets, which should be mounted inside the Docker container.
     As default, `docker-compose.yaml` maps the local directory `./splitted_dataset/` inside the container.
-    Also, two environment variables should be set: `PE_DATASET_TYPE` and `TRAIN_TEST_SPLIT_TYPE`, which allows to find the specific train/test split for a specific dataset. 
-    In other terms, `splitted_dataset/` directory should have this structure:
+    Also, two environment variables should be set: `PE_DATASET_TYPE` and `TRAIN_TEST_SPLIT_TYPE`, which allow to find the specific train/test split for a specific dataset. 
+    In other terms, `splitted_dataset/` directory should follow this structure:
 
 
     ```plaintext
@@ -41,7 +41,7 @@ This project extends [Transcendent](https://github.com/s2labres/transcendent-rel
     └── 
     ```
 
-    So that you can configure the pipeline for different datasets and train/test splits. E.g.:
+    So that you can configure the pipeline for different datasets and train/test splits. For example:
 
     ```plaintext
     splitted_dataset/
