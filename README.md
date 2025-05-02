@@ -1,161 +1,68 @@
-# Transcendent Code (Fork)
+# Transcendent Multiclass
 
-Using conformal evaluation to detect concept drift affecting malware detection.
+This repository allows the user to apply Transcendent-like Concept drift detection for both binary and multiclass problems.
 
-For more information, you can see the project page: https://s2lab.cs.ucl.ac.uk/projects/transcend/
+Modifications have been made to the ICE implementation specifically, leaving the other solutions out of the scope (e.g. TCE, CCE etc.). Furthermore, the thresholding phase is temporarily disabled due to time-contraints, so the threshold should be derived manually once the calibration phase completes.
 
-## Notes about this fork
+This project extends [Transcendent](https://github.com/s2labres/transcendent-release/tree/main) by implementing a Non-Conformity Measure (NCM) based on Random Forest proximities, introduced from the paper ["Prediction with Confidence Based on a Random Forest Classifier"](https://s2lab.cs.ucl.ac.uk/projects/transcend/).
 
-In this fork, several changes were made to enable Transcendent to handle multiclass problems. 
-These changes affect only the ICE solution, as it is the most practical approach.
 
-A Non-Conformity Measure (NCM) based on Random Forest proximities, as presented [here](https://inria.hal.science/hal-01060649/document), has been implemented. Additionally, the confidence score function was modified to support multiple classes.
+## Prerequisites
 
-For time reasons, the thresholding phase is left out of the scope, so it should be derived manually or using a user defined function.
+- Make sure you have a running and active version of [Docker](https://docs.docker.com/engine/install/).
 
-## What is Transcend and Conformal Evaluation? 
+## Usage:
 
-Malware evolves rapidly which makes it hard---if not impossible---to 
-generalize learning models to reflect future, previously-unseen behaviors. 
-Consequently, most malware classifiers become unsustainable in the long run, 
-becoming rapidly antiquated as malware continues to evolve. 
+1. Clone the repository and change directory:
+    ```bash
+    git clone git@github.com:w-disaster/transcendent-multiclass.git && cd transcendent-multiclass
+    ```
 
-Transcendent is a toolset which, together with a statistical framework called 
-conformal evaluation, aims to identify aging classification models in vivo 
-during deployment, before the machine learning model's performance starts to 
-degrade.
+2. Setup `docker-compose.yaml` and the directory containing the Training and Testing set:
 
-Further details can be found in the paper [*Transcending TRANSCEND: Revisiting 
-Malware Classification in the Presence of Concept Drift*](https://arxiv.org/abs/2010.03856). by F. Barbero, F. Pendlebury, F. Pierazzi, and L. Cavallaro (IEEE S&P 2022).
+    `ice.py` looks for the training and testing dataset, which should be mounted inside the Docker container.
+    As default, `docker-compose.yaml` maps the local directory `./splitted_dataset/` inside the container.
+    Also, two environment variables should be set: `PE_DATASET_TYPE` and `TRAIN_TEST_SPLIT_TYPE`, which allows to find the specific train/test split for a specific dataset. 
+    In other terms, `splitted_dataset/` directory should have this structure:
 
-If you end up using Transcendent as part of a project or publication, please include a citation of the S&P paper:
 
-```
-@inproceedings{barbero2022transcendent,
-author = {Federico Barbero and Feargus Pendlebury and Fabio Pierazzi and Lorenzo Cavallaro},
-title = {Transcending Transcend: Revisiting Malware Classification in the Presence of Concept Drift},
-booktitle = {{IEEE} Symposium on Security and Privacy},
-year = {2022},
-}
-```
+    ```plaintext
+    splitted_dataset/
+    ├── PE_DATASET_TYPE/
+    |   ├── TRAIN_TEST_SPLIT_TYPE/
+    │   │    ├── X_train.csv
+    │   │    ├── y_train.csv
+    │   │    ├── X_test.csv
+    │   │    └── y_test.csv
+    │   └──
+    └── 
+    ```
 
-Transcendent is based on Transcend. Further details can be found in the paper [*Transcend: Detecting Concept Drift 
-in Malware Classification Models*](https://www.usenix.org/system/files/conference/usenixsecurity17/sec17-jordaney.pdf). by R. Jordaney, K. Sharad, S. K. Dash, Z. Wang, 
-D. Papini, I. Nouretdinov, and L. Cavallaro (USENIX Sec 2017). An associated 
-presentation can be found at [the Usenix site.](https://www.usenix.org/conference/usenixsecurity17/technical-sessions/presentation/jordaney)
+    So that you can configure the pipeline for different datasets and train/test splits. E.g.:
 
-If you end up using Transcendent as part of a project or publication, please 
-include a citation of the original Transcend Usenix paper as well: 
+    ```plaintext
+    splitted_dataset/
+    ├── ember/
+    |   ├── random_split/
+    │   │    ├── X_train.csv
+    │   │    ├── y_train.csv
+    │   │    ├── X_test.csv
+    │   │    └── y_test.csv
+    │   └──
+    │   ├── time_based/
+    │   │    ├── X_train.csv
+    │   │    ├── y_train.csv
+    │   │    ├── X_test.csv
+    │   │    └── y_test.csv
+    │   └──
+    └── 
+    ├── motif/
+    │   ...
+    └── 
+    ```
 
-```
-@inproceedings {jordaney2017,
-    author = {Roberto Jordaney and Kumar Sharad and Santanu K. Dash and Zhi Wang and Davide Papini and Ilia Nouretdinov and Lorenzo Cavallaro},
-    title = {Transcend: Detecting Concept Drift in Malware Classification Models},
-    booktitle = {26th {USENIX} Security Symposium ({USENIX} Security 17)},
-    year = {2017},
-    isbn = {978-1-931971-40-9},
-    address = {Vancouver, BC},
-    pages = {625--642},
-    url = {https://www.usenix.org/conference/usenixsecurity17/technical-sessions/presentation/jordaney},
-    publisher = {{USENIX} Association},
-}
-```
-
-## Getting Started 
-
-### Installation
-
-Transcend requires Python 3 (preferably >= 3.5) as well as the statistical 
-learning stack of NumPy, SciPy, and Scikit-learn.
-
-Package dependencies can be installed by using the listing in requirements.txt.
-
-```shell
-pip install -r requirements.txt
-```
-
-A full installation can be peformed using setup.py:
-
-```shell
-pip install -r requirements.txt
-python setup.py install 
-```
-
-Features to reproduce the Android experiments can be downloaded from [this link](https://www.dropbox.com/sh/8cc6z64rzi1n4br/AAD88BhcF_BjWcT7tO2T53qTa?dl=0)
-
-Features for Marvin and Drebin can be downloaded from [this link](https://www.dropbox.com/s/wj2eoww36ljqpor/transcend-features.tar.gz?dl=0)
-
-### Usage 
+3. *Deploy* the Concept Drift Pipeline
     
-Conformal evaluation can get a little bit fiddly, so it's advised that you 
-become familiar with a typical testing pipeline such as the example given in 
-`ce.py` as well as the following functions (which are particularly affected by 
-different configuration settings):
-
-* `utils.parse_args()`
-* `data.load_features()`
-* `thresholding.find_quartile_thresholds()`
-* `thresholding.find_random_search_thresholds()`
-* `thresholding.sort_by_predicted_label()`
-* `thresholding.get_performance_with_rejection()`
-
-### ce.py
-
-An example conformal evaluation pipeline using the Transcend library is given 
-in `ce.py`. It can be run with a multitude of command line arguments. 
-
-Comparing quartiles of correct predictions using credibility only: 
-
-```shell
-python3 ce.py	                  	    \
-    --train drebin              	    \
-    --test marvin_full          	    \
-    -k 10                       	    \
-    -n 10                       	    \
-    --pval-consider full-train  	    \
-    -t quartiles                	    \
-    --q-consider correct                \
-    -c cred                     	 
-```
+    A `results/` directory will be locally created containing the credibility ($p$-values) and confidence scores for both calibration and testing sets.
 
 
-Random search for thresholds maximising F1 above threshold and minimising F1 of 
-rejected predictions while enforcing thresholds for credibility and confidence: 
-
-```shell
-python3 ce.py	                  	    \
-    --train drebin              	    \
-    --test marvin_full          	    \
-    -k 10                       	    \
-    -n -2                       	    \
-    --pval-consider full-train  	    \
-    -t random-search            	    \
-    -c cred+conf                  	    \
-    --rs-max f1_k           	 	    \
-    --rs-min f1_r              		    \
-    --rs-limit reject_total_perc:0.25   \
-    --rs-samples 500
-```
-
-Random search for thresholds maximising F1 above threshold subject to the 
-total percentage of rejected elements while enforcing credibility thresholds: 
-
-```shell
-python3 ce.py 		                                \
-	--train drebin                                  \
-	--test marvin_half                              \
-	-k 10                                           \
-	-n -1                                           \
-	--pval-consider full-train                      \
-	-t constrained-search                           \
-	-c cred                                         \
-	--cs-max f1_k:0.95                              \
-	--cs-con kept_pos_perc:0.76,kept_neg_perc:0.76  \
-	--rs-samples 500
-```
-
-## Acknowledgements 
-
-This research has been partially supported by the UK EPSRC grants EP/K033344/1, 
-EP/L022710/1, EP/K006266/1, and EP/P009301/1 as well as the NVIDIA Corporation,
-NHS England, and Innovate UK. 
