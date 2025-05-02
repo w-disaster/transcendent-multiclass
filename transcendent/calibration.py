@@ -22,7 +22,6 @@ import transcendent.data as data
 import transcendent.scores as scores
 
 
-
 def train_calibration_ice(
     X_proper_train, X_cal, y_proper_train, y_cal, fold_index, saved_data_folder="."
 ):
@@ -131,4 +130,3 @@ def train_calibration_ice(
         "pred_proba_cal": pred_proba_cal_fold,  # Calibration predictions
         "model": rf,
     }
-

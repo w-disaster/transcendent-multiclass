@@ -127,4 +127,3 @@ def cache_data(model, data_path):
     with open(data_path, "wb") as f:
         pickle.dump(model, f)
     logging.debug("Done.")
-
