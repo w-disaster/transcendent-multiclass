@@ -1,0 +1,15 @@
+services:
+
+  transcendent-pipeline:
+    image: ghcr.io/w-disaster/transcendent-multiclass:main
+    container_name: transcendent-pipeline
+    environment:
+      BASE_DATASET_PATH: /usr/app/dataset/
+      PE_DATASET_TYPE: "DATASET_TYPE" # e.g. "Motif", "Ember", "Decoding_the_Secrets"
+      TRAIN_TEST_SPLIT_TYPE: "SPLIT_TYPE" # e.g. "radom", "time-based"
+
+    volumes:
+      - "./results/:/usr/app/models/"
+      - "./splitted_dataset/:/usr/app/dataset/"
+
+    

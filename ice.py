@@ -72,7 +72,9 @@ def main():
     test_size = 0.34
 
     # saved_data_folder = os.path.join('models', '{}-fold'.format(args.folds))
-    saved_data_folder = os.path.join("models", "ice-malw-static-features")
+    saved_data_folder = os.path.join(
+        "models", pe_dataset_type, train_test_split_type, "ice-malw-static-features"
+    )
 
     # ---------------------------------------- #
     # 1. Calibration                           #
