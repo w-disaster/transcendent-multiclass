@@ -1,3 +1,9 @@
+## [1.0.2](https://github.com/w-disaster/transcendent-multiclass/compare/1.0.1...1.0.2) (2025-05-02)
+
+### Bug Fixes
+
+* unique label values ([017f585](https://github.com/w-disaster/transcendent-multiclass/commit/017f585df05f8bcc8be7868d505202457da74620))
+
 ## 1.0.0 (2025-04-28)
 
 ### Features
