@@ -1,5 +1,8 @@
 # Transcendent Multiclass
 
+![CI status](https://github.com/w-disaster/transcendent-multiclass/actions/workflows/check.yml/badge.svg) 
+![Version](https://img.shields.io/github/v/release/w-disaster/transcendent-multiclass?style=plastic)
+
 This repository allows the user to apply Transcendent-like Concept drift detection for both binary and multiclass problems.
 
 Modifications have been made to the ICE implementation specifically, leaving the other solutions out of the scope (e.g. TCE, CCE etc.). Furthermore, the thresholding phase is temporarily disabled due to time-contraints, so the threshold should be derived manually once the calibration phase completes.
