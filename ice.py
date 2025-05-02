@@ -1,6 +1,7 @@
 import logging
 import os
 
+import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from transcendent.classifiers.random_forest import RandomForestNCMClassifier
@@ -62,8 +63,10 @@ def main():
 
     X_train, y_train = load_data_frame("X_train.csv"), load_data_frame("y_train.csv")
     X_test, y_test = load_data_frame("X_test.csv"), load_data_frame("y_test.csv")
+    y_train = y_train["family"]
+    y_test = y_test["family"]
 
-    all_labels = pd.concat([y_train, y_test]).values.unique()
+    all_labels = pd.concat([y_train, y_test]).unique()
     y_train = pd.Categorical(y_train, categories=all_labels).codes
 
     # Convert family labels to integers (needed for RF NCM)
